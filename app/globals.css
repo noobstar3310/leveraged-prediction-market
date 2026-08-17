@@ -1,26 +1,182 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens — see .claude/skills/design-system/SKILL.md
+
+   Dark-only by design. This is a trading terminal, not an app with a dark mode,
+   so there is no prefers-color-scheme block and no light palette.
+
+   `long` and `short` share identical OKLCH lightness and chroma so neither side
+   of the book reads louder than the other. Matching hex brightness would NOT
+   achieve this — red appears heavier than green at equal hex luminance.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Surfaces */
+  --background: #020617; /* app ground */
+  --surface: #0b0f1d; /* panels, table rows */
+  --raised: #141a2b; /* hover, selected row */
+
+  /* Lines */
+  --hairline: #1e2739; /* 1px dividers — the primary separator */
+  --border: #2a3446; /* input borders */
+
+  /* Text */
+  --foreground: #f8fafc;
+  --muted: #94a3b8; /* labels, secondary */
+  --faint: #64748b; /* timestamps, disabled */
+
+  /* Semantics — the only color in the system */
+  --long: oklch(0.72 0.17 150);
+  --short: oklch(0.72 0.17 25);
+  --warn: oklch(0.78 0.16 75);
+
+  /* Browser surfaces */
+  --selection: #1d3355;
+  --focus: #94a3b8;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+
+  --color-hairline: var(--hairline);
+  --color-border: var(--border);
+
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-long: var(--long);
+  --color-short: var(--short);
+  --color-warn: var(--warn);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Squared corners suit a terminal */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+
+  /* One curve. Built-in CSS easings are too weak; never ease-in on UI. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---------------------------------------------------------------------------
+   Numerics
+
+   Every value that updates — price, PnL, margin, liquidation price, countdown.
+   Geist Mono is monospaced so digits are equal-width by construction; the
+   font-variant-numeric declaration additionally locks tabular figures and gives
+   a slashed zero so 0 and O never read alike in an address or order id.
+
+   Use `font-variant-numeric`, never raw `font-feature-settings` — the latter
+   silently clobbers other features when re-declared.
+--------------------------------------------------------------------------- */
+
+@utility numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* ---------------------------------------------------------------------------
+   The surfaces we didn't draw
+
+   Selection, caret, scrollbars and focus rings ship with browser defaults that
+   belong to no design system. Theming them is the cheapest signal a page was
+   built rather than assembled — and the detail most reliably skipped.
+--------------------------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input,
+textarea {
+  caret-color: var(--foreground);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* ---------------------------------------------------------------------------
+   Solana wallet-adapter modal
+
+   The adapter's stylesheet hardcodes a light panel with a purple gradient and
+   exposes no CSS custom properties, so it has to be overridden by class name.
+   We keep its layout and replace its palette with ours.
+--------------------------------------------------------------------------- */
+
+.wallet-adapter-modal-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  box-shadow: none;
+  font-family: var(--font-sans);
+}
+
+.wallet-adapter-modal-overlay {
+  background: rgb(2 6 23 / 0.75);
+}
+
+.wallet-adapter-modal-title {
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.wallet-adapter-modal-list li,
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: var(--background);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button:not([disabled]):hover {
+  background: var(--raised);
+}
+
+.wallet-adapter-modal-list-more,
+.wallet-adapter-modal-button-close {
+  background: transparent;
+  color: var(--muted);
+}
+
+.wallet-adapter-modal-button-close:hover {
+  background: var(--raised);
+}
+
+/* Reduced motion: less movement, never less information. State changes that
+   convey a financial event still render — as instant color/border changes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

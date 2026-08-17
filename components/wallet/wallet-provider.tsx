@@ -10,7 +10,8 @@ import { CoinbaseWalletAdapter } from "@solana/wallet-adapter-coinbase";
 import { LedgerWalletAdapter } from "@solana/wallet-adapter-ledger";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
-import { clusterApiUrl } from "@solana/web3.js";
+
+import { SOLANA_RPC_URL } from "@/lib/solana/config";
 
 // Required for the wallet-selection modal's layout. Its colours are overridden
 // in app/globals.css — the stock styling is a light panel with a purple gradient
@@ -36,7 +37,7 @@ import "@solana/wallet-adapter-react-ui/styles.css";
  * expected and not worth silencing.
  */
 export function SolanaProvider({ children }: { children: ReactNode }) {
-  const endpoint = useMemo(() => clusterApiUrl("devnet"), []);
+  const endpoint = SOLANA_RPC_URL;
 
   // Constructed in useMemo rather than at module scope: "use client" modules are
   // still evaluated on the server during SSR, and adapter constructors can touch

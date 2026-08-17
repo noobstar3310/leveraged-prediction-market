@@ -73,4 +73,8 @@ export const mockMarketsClient: MarketsClient = {
       isMockData: true,
     };
   },
+
+  async getMarket(slug: string): Promise<Market | null> {
+    return MOCK_MARKETS.find((market) => market.slug === slug) ?? null;
+  },
 };

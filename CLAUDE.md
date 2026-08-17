@@ -9,9 +9,19 @@ the odds move against them before resolution.
 
 ## Current status — read this before assuming anything exists
 
-**Frontend MVP, pre-first-feature.** The repo is a bare `create-next-app` scaffold:
-[app/page.tsx](app/page.tsx), [app/layout.tsx](app/layout.tsx), [app/globals.css](app/globals.css).
-Nothing below under "Planned structure" has been built yet. Verify before you reference a path.
+**Frontend MVP in progress.** Built and working:
+
+- **Markets browse** — [app/page.tsx](app/page.tsx), 8 cards from 76 mock markets, each
+  with a 30-day sparkline and hover/keyboard crosshair. Server-side search and
+  category / sort / liquidity filters, as a plain GET form with no client JS.
+- **Data seam** — [lib/data/clients.ts](lib/data/clients.ts) plus a mock adapter. A live
+  Polymarket adapter was built and later removed; components did not change.
+- **Nav + wallet** — [components/nav/site-nav.tsx](components/nav/site-nav.tsx), real Solana
+  wallet-adapter connection, network badge derived from the RPC endpoint.
+- **Portfolio** — [app/portfolio/page.tsx](app/portfolio/page.tsx) is a **stub**, empty state only.
+
+Not built: market detail page (cards link to `/markets/[slug]`, which 404s), trade panel,
+`lib/leverage/`, positions, any test runner.
 
 **The Solana program does not exist and is out of scope.** Do not write Anchor code,
 Rust, or on-chain integration until explicitly asked. This is a frontend project right now.
@@ -91,6 +101,12 @@ replacing a live adapter with the mock one without changing a single component.
 **3. Money and probability are never raw floats in the UI.** Format through shared helpers so
 prices, percentages, and PnL render consistently everywhere.
 
+**4. No root `app/loading.tsx`.** It creates a Suspense boundary above every route, so Next
+streams a `200` header before a nested `notFound()` can set the status — `/markets/<bad-slug>`
+answered `200` while rendering the 404 page. Verified by removing it: the same request then
+returned `404`. Data is in-memory and synchronous, so the boundary bought nothing anyway. If a
+route ever needs a loading state, scope it to that route, not the root.
+
 ## Planned structure — build toward this
 
 ```
@@ -113,23 +129,27 @@ components/
 
 ## Design direction
 
-**Dark trading terminal** — Hyperliquid / Drift / GMX, not Robinhood, not a memecoin launchpad.
+**Dark neumorphic / soft UI** — extruded controls on a mid-tone ground, a uniform
+grid of market cards, each with a price-history sparkline.
 
-**Before writing or styling any UI, read `.claude/skills/design-system/SKILL.md`.** It holds the
-committed tokens, the animation frequency gate, the forbidden-patterns list, and the approved
-library stack. It is a decision record, not suggestions — don't substitute alternatives without
-a stated reason.
+**Before writing or styling any UI, read `.claude/skills/design-system/SKILL.md`.** It
+holds the committed tokens, the elevation budget, the animation frequency gate, the
+forbidden-patterns list, and the approved library stack. It is a decision record, not
+suggestions — don't substitute alternatives without a stated reason.
 
 The four rules worth carrying in your head:
 
-- Near-black ground, hairline dividers, **no cards** at this density.
-- Tabular monospace numerals on every value that updates.
-- **Most of this UI does not animate.** Anything a user triggers 100+ times/day — leverage
+- **Depth means "you can touch this" and nothing else.** Static content — headings,
+  rows, every price and PnL — is flat. Only controls are extruded or recessed.
+- **Every control carries a rim.** A soft shadow is a gradient and can never satisfy
+  WCAG 1.4.11. Neumorphism without a rim is the failure mode.
+- **Most of this UI does not animate.** Anything triggered 100+ times/day — leverage
   slider, side toggle, tab switch, order confirm, price tick — gets no animation.
+  Never animate `box-shadow`; hover changes the fill.
 - Green/red is never the only signal. Always pair with `+`/`−` and a direction glyph.
 
-For design decisions, reviews, or when something feels off, delegate to the **`design-director`**
-agent — it holds the full system and returns binding verdicts.
+For design decisions, reviews, or when something feels off, delegate to the
+**`design-director`** agent — it holds the full system and returns binding verdicts.
 
 ## Chosen libraries — decided, not yet installed
 

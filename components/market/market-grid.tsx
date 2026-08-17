@@ -1,27 +1,21 @@
 import type { Market } from "@/lib/data/clients";
 import { MarketCard } from "@/components/market/market-card";
-import { MarketCardSkeleton } from "@/components/market/market-card-skeleton";
 
-const GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
-
+/**
+ * Uniform grid of market tiles.
+ *
+ * Not a bento — that name means varied tile sizes, and every tile here is the
+ * same. The hero/unit split was removed deliberately: with a short list, size
+ * variation bought emphasis nobody asked for and cost a consistent scan column.
+ */
 export function MarketGrid({ markets }: { markets: Market[] }) {
   return (
-    <ul className={GRID}>
+    <ul className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       {markets.map((market) => (
         <li key={market.id}>
           <MarketCard market={market} />
         </li>
       ))}
     </ul>
-  );
-}
-
-export function MarketGridSkeleton({ count = 12 }: { count?: number }) {
-  return (
-    <div className={GRID}>
-      {Array.from({ length: count }, (_, i) => (
-        <MarketCardSkeleton key={i} />
-      ))}
-    </div>
   );
 }

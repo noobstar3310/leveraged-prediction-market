@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { MARKET_CATEGORIES, type MarketCategory, type MarketSort } from "@/lib/data/clients";
+import {
+  MARKET_CATEGORIES,
+  type MarketCategory,
+  type MarketSort,
+} from "@/lib/data/clients";
 
 const SORT_OPTIONS: { value: MarketSort; label: string }[] = [
   { value: "active", label: "Most active (24h)" },
@@ -16,8 +20,14 @@ const VOLUME_OPTIONS: { value: string; label: string }[] = [
   { value: "100000", label: "$100k+ traded" },
 ];
 
-const FIELD = "h-8 rounded-sm border border-border bg-background px-2 text-xs text-foreground";
-const LABEL = "mb-1 block text-[11px] text-faint";
+/**
+ * Inputs are recessed wells — the one place depth means "put something in here"
+ * rather than "press this". `.well-field` carries the mandatory 14px inline
+ * padding: the inset shadow reaches ~13px inward, and text over the lit lobe
+ * measures only 3.06:1.
+ */
+const FIELD = "well-field h-9 text-xs";
+const LABEL = "mb-1.5 block text-[11px] text-faint";
 
 /**
  * A plain GET form, deliberately. Search and filtering run on the server against
@@ -39,7 +49,7 @@ export function MarketFilters({
     <form
       method="GET"
       action="/"
-      className="flex flex-wrap items-end gap-2 border-b border-hairline pb-4"
+      className="flex flex-wrap items-end gap-3"
     >
       <div className="min-w-[200px] grow sm:grow-0 sm:basis-80">
         {/* Visible label, never placeholder-as-label. */}
@@ -106,17 +116,14 @@ export function MarketFilters({
         </select>
       </div>
 
-      <button
-        type="submit"
-        className="h-8 rounded-sm border border-border px-3 text-xs text-foreground transition-colors hover:bg-raised"
-      >
+      <button type="submit" className="control h-9 px-4 text-xs">
         Apply
       </button>
 
       {(search || category || sort !== "active" || minVolume > 0) && (
         <Link
           href="/"
-          className="h-8 rounded-sm px-2 text-xs leading-8 text-muted transition-colors hover:text-foreground"
+          className="h-9 px-2 text-xs leading-9 text-muted transition-colors hover:text-foreground"
         >
           Reset
         </Link>

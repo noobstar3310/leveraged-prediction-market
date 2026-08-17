@@ -10,8 +10,8 @@ import { mockMarketsClient } from "@/lib/data/mock";
 import { MarketFilters } from "@/components/market/market-filters";
 import { MarketGrid } from "@/components/market/market-grid";
 
-/** How many cards we render at once. */
-const PAGE_SIZE = 60;
+/** Deliberately short. A browse screen is a shortlist, not a catalogue. */
+const PAGE_SIZE = 8;
 
 function first(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? "";
@@ -98,7 +98,7 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
  */
 function MockDataNotice() {
   return (
-    <p className="mb-4 rounded-sm border border-warn/40 px-3 py-2 text-xs text-warn">
+    <p className="mb-4 rounded-md border border-warn/50 bg-well px-4 py-2.5 text-xs text-warn">
       Demo data — every market, price and volume on this page is fabricated. No
       real market is being quoted.
     </p>
@@ -119,7 +119,7 @@ function ResultSummary({ page, search }: { page: MarketPage; search: string }) {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-sm border border-hairline bg-surface px-6 py-12 text-center">
+    <div className="rounded-lg border border-rim bg-panel px-6 py-12 text-center elev-2">
       <p className="text-sm font-medium text-foreground">
         Couldn&apos;t load markets
       </p>
@@ -131,7 +131,7 @@ function ErrorState({ message }: { message: string }) {
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/"
-        className="mt-6 inline-block rounded-sm border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-raised"
+        className="control mt-6 inline-block px-4 py-2 text-xs"
       >
         Try again
       </a>
@@ -141,7 +141,7 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState({ search }: { search: string }) {
   return (
-    <div className="rounded-sm border border-hairline bg-surface px-6 py-12 text-center">
+    <div className="rounded-lg border border-rim bg-panel px-6 py-12 text-center elev-2">
       <p className="text-sm font-medium text-foreground">
         {search ? "No markets match that search" : "No markets found"}
       </p>

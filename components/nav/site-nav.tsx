@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { WalletButton } from "@/components/wallet/wallet-button";
+import { CLUSTER_LABEL, IS_MAINNET, SOLANA_CLUSTER } from "@/lib/solana/config";
 
 const LINKS = [
   { href: "/", label: "Markets" },
@@ -17,24 +18,36 @@ function isActive(pathname: string, href: string): boolean {
 /**
  * Site chrome. Client-side only because it reads the active route.
  *
- * No animation anywhere here — switching tabs is a 100+/day action, which the
- * frequency gate disqualifies outright. The active route is a colour and border
- * change, applied instantly.
+ * DELIBERATELY FLAT — no elevation, despite the rest of the system being
+ * neumorphic. A sticky extruded bar casts a shadow lobe onto whatever scrolls
+ * under it, producing a moving contrast gradient across live numbers. Same rule
+ * applies to any future sticky toolbar or table header.
+ *
+ * No animation anywhere here either — switching tabs is a 100+/day action, which
+ * the frequency gate disqualifies outright. The active route is a colour and
+ * border change, applied instantly.
  */
 export function SiteNav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-hairline bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 border-b border-hairline bg-ground">
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6">
         <Link href="/" className="flex shrink-0 items-baseline gap-2">
           <span className="text-sm font-semibold tracking-tight text-foreground">
             Leveraged
           </span>
-          {/* Says plainly which chain this is pointed at. A user should never
-              have to guess whether the balance on screen is real money. */}
-          <span className="rounded-sm border border-warn/40 px-1 text-[10px] tracking-wider text-warn uppercase">
-            Devnet
+          {/* Derived from the configured RPC endpoint, never hardcoded — a badge
+              that says "Devnet" while pointed at mainnet is how someone loses
+              real money. Mainnet is styled as a warning, not a label. */}
+          <span
+            className={`rounded-sm border px-1 text-[10px] tracking-wider uppercase ${
+              IS_MAINNET
+                ? "border-short bg-short/15 text-short"
+                : "border-warn/40 text-warn"
+            }`}
+          >
+            {CLUSTER_LABEL[SOLANA_CLUSTER]}
           </span>
         </Link>
 

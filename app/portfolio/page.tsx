@@ -1,30 +1,34 @@
 import type { Metadata } from "next";
 
+import { mockMarketsClient } from "@/lib/data/mock";
+import { PositionsList } from "@/components/portfolio/positions-list";
+
 export const metadata: Metadata = {
   title: "Portfolio · Leveraged",
 };
 
 /**
- * Placeholder. Real content — open positions with unrealized PnL, health and
- * liquidation proximity, plus settled history — is the next feature.
+ * Open positions.
  *
- * It exists now so the navbar has somewhere to go. An empty state that says
- * what is coming beats a 404.
+ * Positions are stored client-side, but the mark prices they're valued against
+ * come from the server — so this page fetches the whole market set and hands it
+ * down. Passing 76 lightweight rows is cheaper than a round trip per position.
  */
-export default function PortfolioPage() {
+export default async function PortfolioPage() {
+  const { markets } = await mockMarketsClient.listMarkets({ limit: 500 });
+
   return (
     <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6">
-      <header className="mb-6 border-b border-hairline pb-4">
+      <header className="mb-4">
         <h1 className="text-lg font-medium text-foreground">Portfolio</h1>
       </header>
 
-      <div className="rounded-sm border border-hairline bg-surface px-6 py-12 text-center">
-        <p className="text-sm font-medium text-foreground">No open positions</p>
-        <p className="mx-auto mt-2 max-w-md text-xs text-muted">
-          Positions, unrealized PnL and liquidation health will appear here once
-          trading is built. Nothing is tracked yet.
-        </p>
-      </div>
+      <p className="mb-6 rounded-md border border-warn/50 bg-well px-4 py-2.5 text-xs text-warn">
+        Demo data — positions are simulated and stored in this browser only.
+        Nothing is on-chain and no money moves.
+      </p>
+
+      <PositionsList markets={markets} />
     </main>
   );
 }

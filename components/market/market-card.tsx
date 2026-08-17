@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import type { Market } from "@/lib/data/clients";
+import { priceHistoryFor } from "@/lib/data/mock/price-history";
+import { PriceChart } from "@/components/market/price-chart";
 import {
   formatCloseDate,
   formatPrice,
@@ -9,59 +11,86 @@ import {
 } from "@/lib/format";
 
 /**
- * A single market in the browse grid.
+ * A market tile.
  *
- * Cards are a documented exception to the no-cards rule, and apply ONLY to this
- * browse surface — see .claude/skills/design-system/SKILL.md. Hover is a
- * background color change, never a transform: browsing means hovering
- * constantly, which sits squarely in the frequency gate's "no animation" band.
+ * One uniform format — there is no small variant. Every tile is an E1 control:
+ * rim + elevation + instant pressed state. Hover changes the FILL only, because
+ * animating box-shadow is paint-bound and browsing means hovering constantly.
+ *
+ * The chart is a Client Component island; everything around it stays server-
+ * rendered.
  */
 export function MarketCard({ market }: { market: Market }) {
   const yesPercent = Math.min(Math.max(market.yesPrice, 0), 1) * 100;
+  const history = priceHistoryFor(market);
 
   return (
-    <Link
-      href={`/markets/${market.slug}`}
-      className="flex h-full flex-col gap-3 rounded-sm border border-hairline bg-surface p-4 transition-colors hover:bg-raised"
-    >
-      <p className="text-[10px] tracking-widest text-faint uppercase">
-        {market.category}
-      </p>
-
-      <h2 className="line-clamp-3 text-sm leading-snug font-medium text-foreground">
-        {market.question}
-      </h2>
-
-      <div className="mt-auto flex flex-col gap-2 pt-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="numeric text-2xl leading-none text-foreground">
+    <div className="panel flex h-full flex-col gap-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] tracking-widest text-faint uppercase">
+            {market.category}
+          </p>
+          {/* The link wraps only the heading, not the card: the chart inside is
+              interactive, and nesting controls inside an anchor is invalid and
+              breaks keyboard navigation. */}
+          <h2 className="mt-1 text-sm leading-snug font-medium">
+            <Link
+              href={`/markets/${market.slug}`}
+              className="text-foreground hover:underline focus-visible:underline"
+            >
+              {market.question}
+            </Link>
+          </h2>
+        </div>
+        <div className="shrink-0 text-right">
+          <span className="numeric block text-2xl leading-none text-foreground">
             {formatProbability(market.yesPrice)}
           </span>
-          <span className="text-xs text-faint">chance of yes</span>
-        </div>
-        {/* Redundant with the percentage above, so hidden from assistive tech. */}
-        <div aria-hidden className="h-1 w-full overflow-hidden bg-raised">
-          <div className="h-full bg-long" style={{ width: `${yesPercent}%` }} />
+          <span className="mt-1 block text-[10px] text-faint">chance of yes</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-hairline pt-3 text-xs">
-        <div className="flex gap-3">
-          {/* "Yes"/"No" labels carry the meaning, so color is reinforcement
-              rather than the only signal. */}
-          <span className="text-long">
-            Yes <span className="numeric">{formatPrice(market.yesPrice)}</span>
-          </span>
-          <span className="text-short">
-            No <span className="numeric">{formatPrice(market.noPrice)}</span>
-          </span>
-        </div>
-        <div className="flex shrink-0 gap-2 text-faint">
-          <span className="numeric">{formatUsdCompact(market.volume24h)}</span>
-          <span aria-hidden>·</span>
-          <span>{formatCloseDate(market.closesAt)}</span>
-        </div>
+      <PriceChart points={history} label={market.question} />
+
+      {/* Flat fill, not a recessed well: depth means interactive, and this is a
+          readout. Redundant with the percentage, so hidden from AT. */}
+      <div aria-hidden className="h-1.5 w-full overflow-hidden rounded-sm bg-well">
+        <div className="h-full bg-long" style={{ width: `${yesPercent}%` }} />
       </div>
-    </Link>
+
+      <dl className="mt-auto grid grid-cols-4 gap-3 border-t border-hairline pt-3 text-xs">
+        <div>
+          <dt className="text-[10px] tracking-wide text-faint uppercase">Yes</dt>
+          {/* "Yes"/"No" labels carry the meaning, so colour is reinforcement
+              rather than the only signal. */}
+          <dd className="numeric mt-0.5 text-long">
+            {formatPrice(market.yesPrice)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] tracking-wide text-faint uppercase">No</dt>
+          <dd className="numeric mt-0.5 text-short">
+            {formatPrice(market.noPrice)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] tracking-wide text-faint uppercase">
+            24h vol
+          </dt>
+          <dd className="numeric mt-0.5 text-foreground">
+            {formatUsdCompact(market.volume24h)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] tracking-wide text-faint uppercase">
+            Closes
+          </dt>
+          <dd className="numeric mt-0.5 text-foreground">
+            {formatCloseDate(market.closesAt)}
+          </dd>
+        </div>
+      </dl>
+    </div>
   );
 }

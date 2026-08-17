@@ -81,6 +81,8 @@ export type MarketPage = {
 
 export interface MarketsClient {
   listMarkets(query?: MarketQuery): Promise<MarketPage>;
+  /** A single market by slug, or null when it doesn't exist. */
+  getMarket(slug: string): Promise<Market | null>;
 }
 
 /**

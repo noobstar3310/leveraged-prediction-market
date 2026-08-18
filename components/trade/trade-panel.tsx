@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -19,6 +18,7 @@ import {
 } from "@/lib/leverage";
 import type { MarginRequirement } from "@/lib/leverage/tiers";
 import { openPosition } from "@/lib/positions/store";
+import { notifyOrderPlaced } from "@/components/ui/toast";
 import { useBalances } from "@/components/wallet/balances-provider";
 import { USDC_FAUCET_URL, USDC_SYMBOL } from "@/lib/wallet/usdc";
 import { formatPrice } from "@/lib/format";
@@ -77,7 +77,6 @@ export function TradePanel({
   const { connected } = useWallet();
   const { setVisible } = useWalletModal();
   const { usdc } = useBalances();
-  const [opened, setOpened] = useState(false);
 
   const effectiveLeverage = requirement.effectiveLeverage;
   const tiered = requirement.slices.length > 1;
@@ -105,7 +104,13 @@ export function TradePanel({
       selectedLeverage: leverage,
       entryPrice: market.yesPrice,
     });
-    setOpened(true);
+    notifyOrderPlaced({
+      side,
+      leverage: effectiveLeverage,
+      notional: requirement.notional,
+      question: market.question,
+      liquidationPrice: liquidation,
+    });
     router.refresh();
   }
 
@@ -285,13 +290,6 @@ export function TradePanel({
             Get devnet {USDC_SYMBOL}
           </a>
           . The SOL faucet does not issue it.
-        </p>
-      )}
-
-      {opened && (
-        <p role="status" className="text-[11px] text-long">
-          Position opened. It&apos;s fabricated and stored in this browser only —
-          see Portfolio.
         </p>
       )}
 

@@ -11,6 +11,7 @@ import {
   type Position,
 } from "@/lib/leverage";
 import { closePosition, usePositions } from "@/lib/positions/store";
+import { notifyPositionClosed } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/format";
 
 function usd(value: number): string {
@@ -161,7 +162,10 @@ export function PositionsList({ markets }: { markets: Market[] }) {
                   <td className="px-3 text-right">
                     <button
                       type="button"
-                      onClick={() => closePosition(stored.id)}
+                      onClick={() => {
+                        closePosition(stored.id);
+                        notifyPositionClosed(stored.marketQuestion);
+                      }}
                       className="control h-7 px-2 text-[11px]"
                     >
                       Close

@@ -5,6 +5,8 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 
+import { Toaster } from "sonner";
+
 import { SiteNav } from "@/components/nav/site-nav";
 import { SolanaProvider } from "@/components/wallet/wallet-provider";
 import "./globals.css";
@@ -25,6 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SiteNav />
           {children}
         </SolanaProvider>
+        {/* Mounted once, at the root, and OUTSIDE the providers: an ancestor
+            with transform/filter/overflow creates a stacking context that can
+            clip or bury toasts. Toasts are headless, so no theme is needed. */}
+        <Toaster position="bottom-right" offset={24} mobileOffset={16} />
       </body>
     </html>
   );

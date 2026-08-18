@@ -11,17 +11,26 @@ the odds move against them before resolution.
 
 **Frontend MVP in progress.** Built and working:
 
-- **Markets browse** — [app/page.tsx](app/page.tsx), 8 cards from 76 mock markets, each
-  with a 30-day sparkline and hover/keyboard crosshair. Server-side search and
-  category / sort / liquidity filters, as a plain GET form with no client JS.
-- **Data seam** — [lib/data/clients.ts](lib/data/clients.ts) plus a mock adapter. A live
-  Polymarket adapter was built and later removed; components did not change.
-- **Nav + wallet** — [components/nav/site-nav.tsx](components/nav/site-nav.tsx), real Solana
-  wallet-adapter connection, network badge derived from the RPC endpoint.
-- **Portfolio** — [app/portfolio/page.tsx](app/portfolio/page.tsx) is a **stub**, empty state only.
+- **Markets browse** — [app/page.tsx](app/page.tsx), 8 cards from 76 mock markets, each with a
+  30-day sparkline (hover/keyboard crosshair). Server-side search and category / sort /
+  liquidity filters as a plain GET form, no client JS.
+- **Market detail** — [app/markets/[slug]/page.tsx](app/markets/[slug]/page.tsx): TradingView
+  candles (`lightweight-charts`) with live entry and liquidation price lines, plus the trade
+  panel. Unknown slugs correctly 404.
+- **Leverage maths** — [lib/leverage/](lib/leverage/), pure and test-driven. 39 Vitest tests
+  (`npm test`), including tier blending checked against Robinhood's published figures.
+- **Tiered margin** — [lib/leverage/tiers.ts](lib/leverage/tiers.ts). Larger positions fall into
+  tiers permitting less leverage; each slice charged at its own rate. All downstream maths uses
+  EFFECTIVE leverage, never the selected value.
+- **Positions** — opened from the trade panel into `localStorage`
+  ([lib/positions/store.ts](lib/positions/store.ts)), valued live on
+  [app/portfolio/page.tsx](app/portfolio/page.tsx) with PnL, liquidation and health.
+- **Nav + wallet** — real Solana wallet-adapter connection, network badge derived from the RPC
+  endpoint, funding via the official faucet.
 
-Not built: market detail page (cards link to `/markets/[slug]`, which 404s), trade panel,
-`lib/leverage/`, positions, any test runner.
+Not built: closing a position with realised PnL, market resolution/settlement, fees, funding
+rates, and the maintenance-margin cushion (our liquidation price is still the *bankruptcy*
+price — see the note in lib/leverage).
 
 **The Solana program does not exist and is out of scope.** Do not write Anchor code,
 Rust, or on-chain integration until explicitly asked. This is a frontend project right now.
@@ -75,10 +84,10 @@ PnL. There is no live data source and no network call anywhere in the app.
 Market fixtures live in [lib/data/mock/markets.ts](lib/data/mock/markets.ts). They are
 deterministic — no `Date.now()`, no randomness — so a market always renders identically.
 
-**Any screen showing fabricated figures must say so.** `MarketPage.isMockData` drives a visible
-notice on the markets page. This is a design-system rule, not a preference: presenting invented
-prices as real is the one thing a trading UI must never do. The flag flips to `false` on its own
-once a real adapter backs the interface, and the notice disappears with it.
+**The page-level "demo data" banners were removed at the product owner's request.**
+`MarketPage.isMockData` still reports truthfully so a future surface can use it, and the trade
+panel still says no order is routed — but no screen announces that its figures are invented.
+Don't re-add a banner without asking; it was a deliberate call, not an oversight.
 
 We previously pulled live market data from Polymarket and removed it. Two reasons worth
 remembering before anyone suggests putting it back: Polymarket is Polygon/USDC, so its IDs and

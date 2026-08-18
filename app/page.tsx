@@ -7,11 +7,14 @@ import {
   type MarketSort,
 } from "@/lib/data/clients";
 import { mockMarketsClient } from "@/lib/data/mock";
-import { MarketFilters } from "@/components/market/market-filters";
+import {
+  MarketSearch,
+  MarketToolbar,
+} from "@/components/market/market-toolbar";
 import { MarketGrid } from "@/components/market/market-grid";
 
 /** Deliberately short. A browse screen is a shortlist, not a catalogue. */
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 6;
 
 function first(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? "";
@@ -29,17 +32,11 @@ function parseCategory(value: string): MarketCategory | "" {
     : "";
 }
 
-function parseMinVolume(value: string): number {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
 export default async function MarketsPage({ searchParams }: PageProps<"/">) {
   const params = await searchParams;
   const search = first(params.q).slice(0, 100);
   const category = parseCategory(first(params.category));
   const sort = parseSort(first(params.sort));
-  const minVolume = parseMinVolume(first(params.min));
 
   let page: MarketPage | null = null;
   let errorMessage: string | null = null;
@@ -49,7 +46,6 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
       search,
       category: category || undefined,
       sort,
-      minVolume,
       limit: PAGE_SIZE,
     });
   } catch (error) {
@@ -63,21 +59,24 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
 
   return (
     <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6">
-      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h1 className="text-lg font-medium text-foreground">Markets</h1>
-        {page && <ResultSummary page={page} search={search} />}
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          Markets
+        </h1>
+        <MarketSearch search={search} category={category} sort={sort} />
       </header>
 
-      {page?.isMockData && <MockDataNotice />}
-
       <div className="mb-6">
-        <MarketFilters
-          search={search}
-          category={category}
-          sort={sort}
-          minVolume={minVolume}
-        />
+        <MarketToolbar search={search} category={category} sort={sort} />
       </div>
+
+      {page && page.markets.length > 0 && (
+        <p className="mb-4 text-xs text-faint">
+          <span className="numeric">{page.markets.length}</span> of{" "}
+          <span className="numeric">{page.totalMatching}</span>{" "}
+          {search || category ? "matching markets" : "markets"}
+        </p>
+      )}
 
       {errorMessage ? (
         <ErrorState message={errorMessage} />
@@ -90,36 +89,9 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
   );
 }
 
-/**
- * Required while the mock adapter is in use. The design system forbids showing
- * invented figures as though they were real, and every price, volume and date on
- * this screen is fabricated. Disappears on its own once a real adapter reports
- * isMockData: false.
- */
-function MockDataNotice() {
-  return (
-    <p className="mb-4 rounded-md border border-warn/50 bg-well px-4 py-2.5 text-xs text-warn">
-      Demo data — every market, price and volume on this page is fabricated. No
-      real market is being quoted.
-    </p>
-  );
-}
-
-function ResultSummary({ page, search }: { page: MarketPage; search: string }) {
-  return (
-    <p className="text-xs text-faint">
-      Showing <span className="numeric">{page.markets.length}</span> of{" "}
-      <span className="numeric">
-        {page.totalMatching.toLocaleString("en-US")}
-      </span>{" "}
-      {search ? "matches" : "markets"}
-    </p>
-  );
-}
-
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-rim bg-panel px-6 py-12 text-center elev-2">
+    <div className="panel px-6 py-12 text-center">
       <p className="text-sm font-medium text-foreground">
         Couldn&apos;t load markets
       </p>
@@ -129,10 +101,7 @@ function ErrorState({ message }: { message: string }) {
           are already on can be served from the router cache without ever
           hitting the server. A full document load is the behaviour we want. */}
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-      <a
-        href="/"
-        className="control mt-6 inline-block px-4 py-2 text-xs"
-      >
+      <a href="/" className="control mt-6 inline-block px-4 py-2 text-xs">
         Try again
       </a>
     </div>
@@ -141,14 +110,14 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState({ search }: { search: string }) {
   return (
-    <div className="rounded-lg border border-rim bg-panel px-6 py-12 text-center elev-2">
+    <div className="panel px-6 py-12 text-center">
       <p className="text-sm font-medium text-foreground">
-        {search ? "No markets match that search" : "No markets found"}
+        {search ? "No markets match that search" : "No markets in this category"}
       </p>
       <p className="mx-auto mt-2 max-w-md text-xs text-muted">
         {search
-          ? "Try a shorter phrase, or clear the category and liquidity filters."
-          : "Try clearing the filters."}
+          ? "Try a shorter phrase, or switch back to All."
+          : "Switch to All to see everything."}
       </p>
     </div>
   );

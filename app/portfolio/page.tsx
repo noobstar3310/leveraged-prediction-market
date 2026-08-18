@@ -23,11 +23,6 @@ export default async function PortfolioPage() {
         <h1 className="text-lg font-medium text-foreground">Portfolio</h1>
       </header>
 
-      <p className="mb-6 rounded-md border border-warn/50 bg-well px-4 py-2.5 text-xs text-warn">
-        Demo data — positions are simulated and stored in this browser only.
-        Nothing is on-chain and no money moves.
-      </p>
-
       <PositionsList markets={markets} />
     </main>
   );

@@ -33,11 +33,6 @@ export default async function MarketDetailPage({
 
   return (
     <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-6 sm:px-6">
-      <p className="rounded-md border border-warn/50 bg-well px-4 py-2.5 text-xs text-warn">
-        Demo data — this market, its price history and every figure below are
-        fabricated. No order is routed and no money moves.
-      </p>
-
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <Link
@@ -63,14 +58,16 @@ export default async function MarketDetailPage({
             value={`${change >= 0 ? "▲ +" : "▼ −"}${Math.abs(change * 100).toFixed(2)} pts`}
             tone={change >= 0 ? "long" : "short"}
           />
-          <Stat label="Yes / No" value={`${formatPrice(market.yesPrice)} / ${formatPrice(market.noPrice)}`} />
+          <Stat
+            label="Yes / No"
+            value={`${formatPrice(market.yesPrice)} / ${formatPrice(market.noPrice)}`}
+          />
           <Stat label="24h volume" value={formatUsdCompact(market.volume24h)} />
           <Stat label="Closes" value={formatCloseDate(market.closesAt)} />
         </dl>
       </header>
 
       <MarketTerminal market={market} candles={candles} />
-
     </main>
   );
 }

@@ -21,6 +21,8 @@ import { TradePanel } from "@/components/trade/trade-panel";
  * does. Seeing that line move up the candles as you drag the leverage slider is
  * the single most informative thing on this screen: it turns "20x" from a
  * multiplier into a visible distance from the current price.
+ *
+ * The chart always shows the YES series, whichever side is selected.
  */
 export function MarketTerminal({
   market,

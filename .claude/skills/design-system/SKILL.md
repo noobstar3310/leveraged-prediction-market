@@ -261,7 +261,10 @@ layout animations silently no-op while dev works fine.
 - Decorative SVG backgrounds behind data.
 - Emoji or Unicode glyphs standing in for an icon system.
 - **Fake-precise numbers** — any figure must be real or explicitly labelled mock.
-  The mock-data notice on the markets page is required while `isMockData` is true.
+  **Exception, by product-owner decision:** the on-screen demo-data banners were
+  removed. `MarketPage.isMockData` still reports truthfully and the trade panel
+  still states that nothing is executed; there is simply no page-level notice.
+  Do not re-add one without asking.
 - Spinners where a skeleton belongs. Placeholder-as-label. Arbitrary `z-50` spam.
 - Risk information behind a disclosure — liquidation price and health are visible at
   the moment of decision.

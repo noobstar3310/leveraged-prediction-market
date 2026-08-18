@@ -70,3 +70,16 @@ export function formatCloseDate(iso: string): string {
   const isThisYear = date.getUTCFullYear() === new Date().getUTCFullYear();
   return (isThisYear ? monthDay : monthDayYear).format(date);
 }
+
+/**
+ * Payout multiplier for one share, e.g. 0.66 -> "1.52×".
+ *
+ * What a winning dollar returns in total (stake included), which is what
+ * exchanges show beside each outcome. It is simply 1 / price, because a share
+ * pays exactly 1 if its side resolves true.
+ */
+export function formatMultiplier(probability: number): string {
+  if (!Number.isFinite(probability) || probability <= 0) return "—";
+  const clamped = Math.min(Math.max(probability, 0.0001), 1);
+  return `${(1 / clamped).toFixed(2)}×`;
+}

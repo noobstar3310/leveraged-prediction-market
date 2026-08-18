@@ -23,7 +23,17 @@ export type StoredPosition = {
   side: Side;
   /** Collateral posted, in USDC. */
   margin: number;
+  /**
+   * EFFECTIVE leverage — notional ÷ margin after tiered margin is applied. This
+   * is what all downstream maths uses, because it is what actually backs the
+   * position.
+   */
   leverage: number;
+  /**
+   * What the trader picked on the slider. Optional: positions stored before
+   * tiered margin existed don't have it, and the UI falls back to `leverage`.
+   */
+  selectedLeverage?: number;
   /** Market YES probability when the position was opened. */
   entryPrice: number;
   /** ISO 8601. Runtime clock is fine here — this is a user action, not a fixture. */

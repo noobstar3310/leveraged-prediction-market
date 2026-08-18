@@ -4,8 +4,7 @@ import { notFound } from "next/navigation";
 
 import { mockMarketsClient } from "@/lib/data/mock";
 import { candlesFor } from "@/lib/data/mock/candles";
-import { CandleChart } from "@/components/market/candle-chart";
-import { TradePanel } from "@/components/trade/trade-panel";
+import { MarketTerminal } from "@/components/trade/market-terminal";
 import {
   formatCloseDate,
   formatPrice,
@@ -70,18 +69,8 @@ export default async function MarketDetailPage({
         </dl>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
-        <section
-          aria-label="Price chart"
-          className="panel h-[420px] overflow-hidden p-2 xl:h-[560px]"
-        >
-          <CandleChart candles={candles} />
-        </section>
+      <MarketTerminal market={market} candles={candles} />
 
-        <section aria-label="Order entry">
-          <TradePanel market={market} />
-        </section>
-      </div>
     </main>
   );
 }

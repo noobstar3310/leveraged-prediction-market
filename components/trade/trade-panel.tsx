@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
@@ -10,13 +10,12 @@ import {
   MIN_LEVERAGE,
   clampLeverage,
   healthFactor,
-  liquidationPrice,
-  notionalFor,
   payoutAtResolution,
   sharesFor,
   type Position,
   type Side,
 } from "@/lib/leverage";
+import type { MarginRequirement } from "@/lib/leverage/tiers";
 import { openPosition } from "@/lib/positions/store";
 import { formatPrice } from "@/lib/format";
 
@@ -30,8 +29,25 @@ function usd(value: number): string {
   });
 }
 
+type Props = {
+  market: Market;
+  side: Side;
+  margin: number;
+  leverage: number;
+  onSideChange: (side: Side) => void;
+  onMarginChange: (margin: number) => void;
+  onLeverageChange: (leverage: number) => void;
+  /** Built with the EFFECTIVE leverage, after tiered margin. */
+  position: Position;
+  requirement: MarginRequirement & { notional: number };
+  liquidation: number;
+};
+
 /**
  * Order entry.
+ *
+ * Controlled by MarketTerminal, which owns the draft so the chart can draw the
+ * same liquidation line this panel reports.
  *
  * Every derived figure comes from lib/leverage — the tested, pure module. This
  * component does no maths of its own, deliberately: the liquidation price is the
@@ -41,25 +57,27 @@ function usd(value: number): string {
  * Nothing animates. Side toggle, size and leverage are all 100+/day actions,
  * which the frequency gate disqualifies outright.
  */
-export function TradePanel({ market }: { market: Market }) {
+export function TradePanel({
+  market,
+  side,
+  margin,
+  leverage,
+  onSideChange,
+  onMarginChange,
+  onLeverageChange,
+  position,
+  requirement,
+  liquidation,
+}: Props) {
   const router = useRouter();
-  const [side, setSide] = useState<Side>("yes");
-  const [margin, setMargin] = useState(100);
-  const [leverage, setLeverage] = useState(5);
   const [opened, setOpened] = useState(false);
 
-  const position: Position = useMemo(
-    () => ({ side, margin, leverage, entryPrice: market.yesPrice }),
-    [side, margin, leverage, market.yesPrice],
-  );
-
-  const notional = notionalFor(margin, leverage);
-  const liq = liquidationPrice(position);
+  const effectiveLeverage = requirement.effectiveLeverage;
+  const tiered = requirement.slices.length > 1;
   const shares = sharesFor(position);
   const winPayout = payoutAtResolution(position, side);
   const health = healthFactor(position, market.yesPrice);
-  const distanceToLiq = Math.abs(market.yesPrice - liq);
-
+  const distanceToLiq = Math.abs(market.yesPrice - liquidation);
   const entryCost = side === "yes" ? market.yesPrice : market.noPrice;
   const valid = margin > 0 && Number.isFinite(margin);
 
@@ -71,7 +89,10 @@ export function TradePanel({ market }: { market: Market }) {
       marketQuestion: market.question,
       side,
       margin,
-      leverage,
+      // Effective, not selected — the portfolio values the position against
+      // what actually backs it.
+      leverage: effectiveLeverage,
+      selectedLeverage: leverage,
       entryPrice: market.yesPrice,
     });
     setOpened(true);
@@ -80,7 +101,7 @@ export function TradePanel({ market }: { market: Market }) {
 
   return (
     <div className="panel flex flex-col gap-4 p-4">
-      <SideToggle side={side} onChange={setSide} market={market} />
+      <SideToggle side={side} onChange={onSideChange} market={market} />
 
       <div>
         <label htmlFor="margin" className="mb-1.5 block text-[11px] text-faint">
@@ -93,7 +114,7 @@ export function TradePanel({ market }: { market: Market }) {
           step={1}
           inputMode="decimal"
           value={margin}
-          onChange={(e) => setMargin(Number(e.target.value))}
+          onChange={(e) => onMarginChange(Number(e.target.value))}
           className="well-field numeric h-9 w-full text-sm"
         />
         <div className="mt-2 flex gap-2">
@@ -101,7 +122,7 @@ export function TradePanel({ market }: { market: Market }) {
             <button
               key={amount}
               type="button"
-              onClick={() => setMargin(amount)}
+              onClick={() => onMarginChange(amount)}
               className="control numeric h-7 flex-1 text-[11px]"
             >
               {amount}
@@ -115,7 +136,14 @@ export function TradePanel({ market }: { market: Market }) {
           <label htmlFor="leverage" className="text-[11px] text-faint">
             Leverage
           </label>
-          <span className="numeric text-sm text-foreground">{leverage}×</span>
+          <span className="numeric text-sm text-foreground">
+            {leverage}×
+            {tiered && (
+              <span className="ml-2 text-xs text-warn">
+                → {effectiveLeverage.toFixed(2)}× effective
+              </span>
+            )}
+          </span>
         </div>
         <input
           id="leverage"
@@ -124,7 +152,7 @@ export function TradePanel({ market }: { market: Market }) {
           max={MAX_LEVERAGE}
           step={1}
           value={leverage}
-          onChange={(e) => setLeverage(clampLeverage(Number(e.target.value)))}
+          onChange={(e) => onLeverageChange(clampLeverage(Number(e.target.value)))}
           className="w-full accent-[var(--long)]"
           aria-describedby="liq-readout"
         />
@@ -136,17 +164,22 @@ export function TradePanel({ market }: { market: Market }) {
 
       {/* The liquidation readout is flat text on the panel — the most important
           number on the screen gets no depth competing with it, and it is never
-          hidden behind a disclosure. */}
+          hidden behind a disclosure. It is also drawn on the chart. */}
       <dl
         id="liq-readout"
         className="flex flex-col gap-2 border-t border-hairline pt-3 text-xs"
       >
         <Row label="Entry price" value={formatPrice(entryCost)} />
-        <Row label="Position size" value={usd(notional)} />
+        <Row label="Position size" value={usd(requirement.notional)} />
+        <Row
+          label="Margin rate"
+          value={`${(requirement.blendedRate * 100).toFixed(2)}%`}
+          hint={tiered ? "blended" : undefined}
+        />
         <Row label="Shares" value={shares.toFixed(1)} />
         <Row
           label="Liquidation price"
-          value={formatPrice(liq)}
+          value={formatPrice(liquidation)}
           tone="warn"
           hint={`${(distanceToLiq * 100).toFixed(1)} pts away`}
         />
@@ -157,6 +190,30 @@ export function TradePanel({ market }: { market: Market }) {
         />
         <Row label="Max loss" value={usd(margin)} tone="short" />
       </dl>
+
+      {tiered && (
+        <div className="border-t border-hairline pt-3">
+          <p className="mb-2 text-[10px] tracking-wide text-faint uppercase">
+            Margin tiers · charged per slice
+          </p>
+          <ul className="flex flex-col gap-1 text-[11px]">
+            {requirement.slices.map((slice) => (
+              <li key={slice.tier} className="flex justify-between gap-3">
+                <span className="text-faint">
+                  <span className="numeric">{usd(slice.notional)}</span> at{" "}
+                  <span className="numeric">{slice.leverage}×</span>
+                </span>
+                <span className="numeric text-muted">{usd(slice.margin)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[10px] leading-relaxed text-faint">
+            Bigger positions sit in tiers that allow less leverage. Each slice is
+            charged at its own tier&apos;s rate, so your effective leverage falls
+            below the {leverage}× selected.
+          </p>
+        </div>
+      )}
 
       <div>
         <div className="mb-1 flex items-baseline justify-between text-[10px] text-faint">

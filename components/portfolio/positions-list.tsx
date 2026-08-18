@@ -101,8 +101,19 @@ export function PositionsList({ markets }: { markets: Market[] }) {
                     <span className={stored.side === "yes" ? "text-long" : "text-short"}>
                       {stored.side.toUpperCase()}
                     </span>
-                    <span className="numeric ml-1.5 text-faint">
-                      {stored.leverage}×
+                    {/* Effective leverage, which tiered margin can drag below
+                        what was selected. Shown to 1dp so 7.8x never rounds to
+                        a flattering 8x; the selected value is in the tooltip. */}
+                    <span
+                      className="numeric ml-1.5 text-faint"
+                      title={
+                        stored.selectedLeverage &&
+                        stored.selectedLeverage !== stored.leverage
+                          ? `${stored.selectedLeverage}× selected, ${stored.leverage.toFixed(2)}× effective after tiered margin`
+                          : undefined
+                      }
+                    >
+                      {stored.leverage.toFixed(1)}×
                     </span>
                   </td>
                   <td className="numeric px-3 text-right text-foreground">

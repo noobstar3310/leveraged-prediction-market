@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -9,6 +9,8 @@ import {
   LineStyle,
   createChart,
   type IChartApi,
+  type IPriceLine,
+  type ISeriesApi,
 } from "lightweight-charts";
 
 import type { Candle } from "@/lib/data/mock/candles";
@@ -18,11 +20,17 @@ import type { Candle } from "@/lib/data/mock/candles";
  *
  * Uses lightweight-charts (Apache-2.0), TradingView's own library, so this is
  * literally their renderer rather than a lookalike. It draws to canvas, so it is
- * styled with resolved colour values read off the document at mount — CSS custom
- * properties can't reach inside a canvas.
+ * styled with resolved colour values read off the document at mount.
  *
  * Overrides the design system's charting choice (Bklit/visx) for this surface
  * only, because "exactly like TradingView" is the requirement.
+ *
+ * ## Two effects, deliberately
+ *
+ * Building the chart is expensive; moving a price line is not. The entry and
+ * liquidation lines change on every drag of the leverage slider, so they are
+ * updated in place in a SECOND effect. Putting them in the build effect would
+ * tear down and recreate the whole chart on every pixel of slider movement.
  */
 export function CandleChart({
   candles,
@@ -30,12 +38,23 @@ export function CandleChart({
   entryPrice,
 }: {
   candles: Candle[];
-  /** Drawn as a horizontal marker when a position is being previewed. */
+  /** Redrawn live as the trader adjusts size or leverage. */
   liquidationPrice?: number | null;
   entryPrice?: number | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const liqLineRef = useRef<IPriceLine | null>(null);
+  const entryLineRef = useRef<IPriceLine | null>(null);
+  const colorsRef = useRef({ faint: "#9398a3", warn: "#f2a618" });
+
+  /**
+   * Bumped when the chart is (re)built so the price-line effect re-attaches to
+   * the new series. Without it, rebuilding the chart would silently orphan the
+   * lines — they'd vanish and never come back.
+   */
+  const [chartEpoch, setChartEpoch] = useState(0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -62,6 +81,7 @@ export function CandleChart({
     const long = token("--chart-up", "#3fc168");
     const short = token("--chart-down", "#fd736d");
     const warn = token("--chart-warn", "#f2a618");
+    colorsRef.current = { faint, warn };
 
     const chart = createChart(container, {
       layout: {
@@ -95,6 +115,7 @@ export function CandleChart({
       priceFormat: { type: "price", precision: 3, minMove: 0.001 },
     });
     candleSeries.setData(candles);
+    seriesRef.current = candleSeries;
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: "volume" },
@@ -112,42 +133,77 @@ export function CandleChart({
       })),
     );
 
-    if (entryPrice != null) {
-      candleSeries.createPriceLine({
-        price: entryPrice,
-        color: faint,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: "entry",
-      });
-    }
-
-    if (liquidationPrice != null) {
-      candleSeries.createPriceLine({
-        price: liquidationPrice,
-        color: warn,
-        lineWidth: 2,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: "liq.",
-      });
-    }
-
     chart.timeScale().fitContent();
+    setChartEpoch((n) => n + 1);
 
     return () => {
       chart.remove();
       chartRef.current = null;
+      seriesRef.current = null;
+      // Owned by the destroyed series — dropping the refs avoids calling
+      // removePriceLine on a disposed chart.
+      liqLineRef.current = null;
+      entryLineRef.current = null;
     };
-  }, [candles, liquidationPrice, entryPrice]);
+  }, [candles]);
+
+  // Price lines: created once, then moved in place. No animation — dragging the
+  // leverage slider is a 100+/day action and the frequency gate disqualifies it.
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    const { faint, warn } = colorsRef.current;
+
+    const sync = (
+      ref: React.MutableRefObject<IPriceLine | null>,
+      price: number | null | undefined,
+      options: { color: string; title: string; lineWidth: 1 | 2 },
+    ) => {
+      if (price == null || !Number.isFinite(price)) {
+        if (ref.current) {
+          series.removePriceLine(ref.current);
+          ref.current = null;
+        }
+        return;
+      }
+      if (ref.current) {
+        ref.current.applyOptions({ price });
+        return;
+      }
+      ref.current = series.createPriceLine({
+        price,
+        color: options.color,
+        lineWidth: options.lineWidth,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: options.title,
+      });
+    };
+
+    sync(entryLineRef, entryPrice, {
+      color: faint,
+      title: "entry",
+      lineWidth: 1,
+    });
+    // Heavier and amber: this is the line that decides whether someone loses
+    // everything, so it must not read as one more grid line.
+    sync(liqLineRef, liquidationPrice, {
+      color: warn,
+      title: "liq.",
+      lineWidth: 2,
+    });
+  }, [liquidationPrice, entryPrice, chartEpoch]);
 
   return (
     <div
       ref={containerRef}
       className="h-full w-full"
       role="img"
-      aria-label={`Daily price candles. ${candles.length} bars ending at ${candles[candles.length - 1]?.close}.`}
+      aria-label={
+        liquidationPrice != null
+          ? `Daily price candles. ${candles.length} bars ending at ${candles[candles.length - 1]?.close}. Liquidation price marked at ${liquidationPrice.toFixed(3)}.`
+          : `Daily price candles. ${candles.length} bars ending at ${candles[candles.length - 1]?.close}.`
+      }
     />
   );
 }

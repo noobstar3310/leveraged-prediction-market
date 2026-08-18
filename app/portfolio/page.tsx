@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { mockMarketsClient } from "@/lib/data/mock";
+import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
 import { PositionsList } from "@/components/portfolio/positions-list";
 
 export const metadata: Metadata = {
@@ -23,6 +24,13 @@ export default async function PortfolioPage() {
         <h1 className="text-lg font-medium text-foreground">Portfolio</h1>
       </header>
 
+      <div className="mb-6">
+        <PortfolioSummary markets={markets} />
+      </div>
+
+      <h2 className="mb-3 text-[10px] tracking-wide text-faint uppercase">
+        Open positions
+      </h2>
       <PositionsList markets={markets} />
     </main>
   );

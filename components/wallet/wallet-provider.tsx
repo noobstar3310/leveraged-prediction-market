@@ -6,6 +6,8 @@ import {
   WalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+
+import { BalancesProvider } from "@/components/wallet/balances-provider";
 import { CoinbaseWalletAdapter } from "@solana/wallet-adapter-coinbase";
 import { LedgerWalletAdapter } from "@solana/wallet-adapter-ledger";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
@@ -55,7 +57,9 @@ export function SolanaProvider({ children }: { children: ReactNode }) {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        <WalletModalProvider>
+          <BalancesProvider>{children}</BalancesProvider>
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

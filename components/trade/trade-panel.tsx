@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Check } from "lucide-react";
 
 import type { Market } from "@/lib/data/clients";
@@ -17,6 +19,8 @@ import {
 } from "@/lib/leverage";
 import type { MarginRequirement } from "@/lib/leverage/tiers";
 import { openPosition } from "@/lib/positions/store";
+import { useBalances } from "@/components/wallet/balances-provider";
+import { USDC_FAUCET_URL, USDC_SYMBOL } from "@/lib/wallet/usdc";
 import { formatPrice } from "@/lib/format";
 
 const PRESET_MARGINS = [25, 100, 500, 1000];
@@ -70,6 +74,9 @@ export function TradePanel({
   liquidation,
 }: Props) {
   const router = useRouter();
+  const { connected } = useWallet();
+  const { setVisible } = useWalletModal();
+  const { usdc } = useBalances();
   const [opened, setOpened] = useState(false);
 
   const effectiveLeverage = requirement.effectiveLeverage;
@@ -79,7 +86,10 @@ export function TradePanel({
   const health = healthFactor(position, market.yesPrice);
   const distanceToLiq = Math.abs(market.yesPrice - liquidation);
   const entryCost = side === "yes" ? market.yesPrice : market.noPrice;
-  const valid = margin > 0 && Number.isFinite(margin);
+  const sizeValid = margin > 0 && Number.isFinite(margin);
+  // Real balance, so a real gate: you cannot post collateral you don't hold.
+  const funded = usdc !== null && usdc >= margin;
+  const valid = sizeValid && connected && funded;
 
   function confirm() {
     if (!valid) return;
@@ -215,6 +225,13 @@ export function TradePanel({
         </div>
       )}
 
+      <dl className="flex items-baseline justify-between border-t border-hairline pt-3 text-xs">
+        <dt className="text-faint">Available to trade</dt>
+        <dd className="numeric text-foreground">
+          {usdc === null ? "—" : usdc.toFixed(2)} {USDC_SYMBOL}
+        </dd>
+      </dl>
+
       <div>
         <div className="mb-1 flex items-baseline justify-between text-[10px] text-faint">
           <span>Health at current price</span>
@@ -228,14 +245,48 @@ export function TradePanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={confirm}
-        disabled={!valid}
-        className="control h-10 w-full text-sm font-medium"
-      >
-        Open {side.toUpperCase()} · {leverage}×
-      </button>
+      {!connected ? (
+        <button
+          type="button"
+          onClick={() => setVisible(true)}
+          className="control h-10 w-full text-sm font-medium"
+        >
+          Connect wallet to trade
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={!valid}
+          className="control h-10 w-full text-sm font-medium"
+        >
+          {!sizeValid
+            ? "Enter a size"
+            : !funded
+              ? `Insufficient ${USDC_SYMBOL}`
+              : `Open ${side.toUpperCase()} · ${leverage}×`}
+        </button>
+      )}
+
+      {connected && !funded && sizeValid && (
+        <p className="text-[11px] leading-relaxed text-warn">
+          You hold{" "}
+          <span className="numeric">
+            {usdc === null ? "an unknown amount of" : usdc.toFixed(2)}
+          </span>{" "}
+          {USDC_SYMBOL} and this position needs{" "}
+          <span className="numeric">{usd(margin)}</span>.{" "}
+          <a
+            href={USDC_FAUCET_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            Get devnet {USDC_SYMBOL}
+          </a>
+          . The SOL faucet does not issue it.
+        </p>
+      )}
 
       {opened && (
         <p role="status" className="text-[11px] text-long">
@@ -245,9 +296,10 @@ export function TradePanel({
       )}
 
       <p className="text-[10px] leading-relaxed text-faint">
-        Simulated. No order is routed, no money moves. Fees, funding and
-        maintenance margin are not modelled, so this liquidation price is the
-        optimistic bound.
+        Collateral, size and payouts are all in {USDC_SYMBOL}; SOL is only used
+        for network fees. Simulated — no order is routed and no money moves.
+        Trading fees, funding and maintenance margin are not modelled, so this
+        liquidation price is the optimistic bound.
       </p>
     </div>
   );

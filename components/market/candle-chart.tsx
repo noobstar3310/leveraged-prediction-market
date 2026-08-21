@@ -14,6 +14,7 @@ import {
 } from "lightweight-charts";
 
 import type { Candle } from "@/lib/data/mock/candles";
+import { useTheme } from "@/components/ui/theme";
 
 /**
  * TradingView candlestick chart.
@@ -47,7 +48,10 @@ export function CandleChart({
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const liqLineRef = useRef<IPriceLine | null>(null);
   const entryLineRef = useRef<IPriceLine | null>(null);
-  const colorsRef = useRef({ faint: "#9398a3", warn: "#f2a618" });
+  const colorsRef = useRef({ faint: "#78716c", warn: "#a16207" });
+  // Canvas colours are resolved once at build time, so the chart must be rebuilt
+  // when the theme flips — otherwise it keeps painting the old palette.
+  const { theme } = useTheme();
 
   /**
    * Bumped when the chart is (re)built so the price-line effect re-attaches to
@@ -145,7 +149,7 @@ export function CandleChart({
       liqLineRef.current = null;
       entryLineRef.current = null;
     };
-  }, [candles]);
+  }, [candles, theme]);
 
   // Price lines: created once, then moved in place. No animation — dragging the
   // leverage slider is a 100+/day action and the frequency gate disqualifies it.

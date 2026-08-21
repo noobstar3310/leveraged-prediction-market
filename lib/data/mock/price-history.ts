@@ -23,7 +23,14 @@ export type PricePoint = {
 /** Frozen "today" for the mock dataset. Keeps every series reproducible. */
 const AS_OF = Date.UTC(2026, 7, 17); // 2026-08-17
 
-const DAYS = 30;
+/**
+ * 90 points, not 30.
+ *
+ * Density is what makes a crosshair feel smooth: at 30 points across a ~300px
+ * card each step is a visible ~10px jump. At 90 it is ~3px and reads as
+ * continuous — without interpolating values that were never real.
+ */
+const DAYS = 90;
 const DAY_MS = 86_400_000;
 
 /** Deterministic 32-bit hash of a string. */
@@ -49,7 +56,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
- * A 30-day daily series ending at the market's current price.
+ * A 90-day daily series ending at the market's current price.
  *
  * Volatility scales with how uncertain the market is: a question sitting at 50%
  * moves far more than one parked at 3%, which is how real prediction markets
@@ -60,7 +67,9 @@ export function priceHistoryFor(market: Market): PricePoint[] {
 
   // 4·p·(1−p) peaks at 1.0 when p = 0.5 and approaches 0 at the extremes.
   const uncertainty = 4 * market.yesPrice * (1 - market.yesPrice);
-  const step = 0.006 + 0.028 * uncertainty;
+  // Smaller per-step move now that there are 3x as many steps, so the series
+  // covers a comparable range rather than wandering three times as far.
+  const step = 0.0035 + 0.016 * uncertainty;
 
   const prices: number[] = [market.yesPrice];
   for (let i = 1; i < DAYS; i++) {

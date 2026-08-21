@@ -273,32 +273,49 @@ export function TradePanel({
         </button>
       )}
 
+      {/* One scannable line, not a paragraph. The shortfall is the only fact
+          that matters here; the explanation lives on the link. */}
       {connected && !funded && sizeValid && (
-        <p className="text-[11px] leading-relaxed text-warn">
-          You hold{" "}
-          <span className="numeric">
-            {usdc === null ? "an unknown amount of" : usdc.toFixed(2)}
-          </span>{" "}
-          {USDC_SYMBOL} and this position needs{" "}
-          <span className="numeric">{usd(margin)}</span>.{" "}
+        <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-warn">
+          <span>
+            Need <span className="numeric">{usd(margin)}</span>, have{" "}
+            <span className="numeric">
+              {usdc === null ? "—" : usd(usdc)}
+            </span>
+          </span>
           <a
             href={USDC_FAUCET_URL}
             target="_blank"
             rel="noreferrer"
             className="underline underline-offset-2"
+            title={`The SOL faucet does not issue ${USDC_SYMBOL}`}
           >
-            Get devnet {USDC_SYMBOL}
+            Get {USDC_SYMBOL} →
           </a>
-          . The SOL faucet does not issue it.
         </p>
       )}
 
-      <p className="text-[10px] leading-relaxed text-faint">
-        Collateral, size and payouts are all in {USDC_SYMBOL}; SOL is only used
-        for network fees. Simulated — no order is routed and no money moves.
-        Trading fees, funding and maintenance margin are not modelled, so this
-        liquidation price is the optimistic bound.
-      </p>
+      {/* Collapsed by default. The numbers a trader acts on — liquidation
+          price, max loss, health — stay fully visible above; only the modelling
+          caveats are tucked away, and a <details> keeps them keyboard-reachable
+          rather than hover-only. */}
+      <details className="group">
+        <summary className="cursor-pointer list-none text-[10px] text-faint transition-colors hover:text-muted">
+          Simulated · assumptions
+          <span aria-hidden className="ml-1 inline-block group-open:hidden">
+            +
+          </span>
+          <span aria-hidden className="ml-1 hidden group-open:inline-block">
+            −
+          </span>
+        </summary>
+        <p className="mt-2 text-[10px] leading-relaxed text-faint">
+          No order is routed and no money moves. Collateral, size and payouts are
+          in {USDC_SYMBOL}; SOL pays network fees only. Trading fees, funding and
+          maintenance margin are not modelled, so the liquidation price above is
+          the optimistic bound — a real venue would close the position sooner.
+        </p>
+      </details>
     </div>
   );
 }

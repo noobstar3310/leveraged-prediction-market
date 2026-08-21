@@ -62,7 +62,7 @@ function OrderPlaced({
   const sideRing = isYes ? "border-long/50" : "border-short/50";
 
   return (
-    <div className="panel elev-2 flex w-[min(22rem,calc(100vw-2rem))] items-start gap-3 p-4">
+    <div className="panel flex w-[min(22rem,calc(100vw-2rem))] items-start gap-3 p-4">
       <span
         aria-hidden
         className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border ${sideRing} ${sideText}`}
@@ -108,7 +108,7 @@ function OrderPlaced({
 export function notifyPositionClosed(question: string) {
   toast.custom(
     (id) => (
-      <div className="panel elev-2 flex w-[min(22rem,calc(100vw-2rem))] items-start gap-3 p-4">
+      <div className="panel flex w-[min(22rem,calc(100vw-2rem))] items-start gap-3 p-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Position closed</p>
           <p className="mt-0.5 line-clamp-2 text-xs text-muted">{question}</p>

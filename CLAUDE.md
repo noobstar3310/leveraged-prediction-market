@@ -17,7 +17,7 @@ the odds move against them before resolution.
 - **Market detail** — [app/markets/[slug]/page.tsx](app/markets/[slug]/page.tsx): TradingView
   candles (`lightweight-charts`) with live entry and liquidation price lines, plus the trade
   panel. Unknown slugs correctly 404.
-- **Leverage maths** — [lib/leverage/](lib/leverage/), pure and test-driven. 39 Vitest tests
+- **Leverage maths** — [lib/leverage/](lib/leverage/), pure and test-driven. 43 Vitest tests
   (`npm test`), including tier blending checked against Robinhood's published figures.
 - **Tiered margin** — [lib/leverage/tiers.ts](lib/leverage/tiers.ts). Larger positions fall into
   tiers permitting less leverage; each slice charged at its own rate. All downstream maths uses
@@ -26,7 +26,10 @@ the odds move against them before resolution.
   ([lib/positions/store.ts](lib/positions/store.ts)), valued live on
   [app/portfolio/page.tsx](app/portfolio/page.tsx) with PnL, liquidation and health.
 - **Nav + wallet** — real Solana wallet-adapter connection, network badge derived from the RPC
-  endpoint, funding via the official faucet.
+  endpoint. USDC is the settlement asset (real SPL balance, cluster-aware mint); SOL is gas only.
+  Opening a position is gated on holding enough USDC.
+- **Theming** — light and dark, switchable from the nav, persisted to `localStorage` with an
+  inline pre-paint script so there is no flash. Both palettes contrast-verified.
 
 Not built: closing a position with realised PnL, market resolution/settlement, fees, funding
 rates, and the maintenance-margin cushion (our liquidation price is still the *bankruptcy*
@@ -138,27 +141,23 @@ components/
 
 ## Design direction
 
-**Dark neumorphic / soft UI** — extruded controls on a mid-tone ground, a uniform
-grid of market cards, each with a price-history sparkline.
+**Warm-neutral, flat, dual-theme.** TikTok Sans headlines, Geist body, Geist Mono numerals.
+Light and dark are both first-class, switchable from the nav.
 
-**Before writing or styling any UI, read `.claude/skills/design-system/SKILL.md`.** It
-holds the committed tokens, the elevation budget, the animation frequency gate, the
-forbidden-patterns list, and the approved library stack. It is a decision record, not
-suggestions — don't substitute alternatives without a stated reason.
+**[DESIGN.md](DESIGN.md) at the repo root is the source of truth.** Read it before styling
+anything; `.claude/skills/design-system/SKILL.md` is a short agent summary that defers to it.
 
 The four rules worth carrying in your head:
 
-- **Depth means "you can touch this" and nothing else.** Static content — headings,
-  rows, every price and PnL — is flat. Only controls are extruded or recessed.
-- **Every control carries a rim.** A soft shadow is a gradient and can never satisfy
-  WCAG 1.4.11. Neumorphism without a rim is the failure mode.
-- **Most of this UI does not animate.** Anything triggered 100+ times/day — leverage
-  slider, side toggle, tab switch, order confirm, price tick — gets no animation.
-  Never animate `box-shadow`; hover changes the fill.
+- **No shadows.** Depth is fill and border. A control's boundary IS its border.
+- **Two border tokens.** `--hairline` is decorative; `--border` is for interactive edges and
+  must clear 3:1. Using the wrong one is a bug, not a style choice.
+- **Most of this UI does not animate.** Anything triggered 100+ times/day — leverage slider,
+  side toggle, tab switch, order confirm, price tick — gets no animation.
 - Green/red is never the only signal. Always pair with `+`/`−` and a direction glyph.
 
 For design decisions, reviews, or when something feels off, delegate to the
-**`design-director`** agent — it holds the full system and returns binding verdicts.
+**`design-director`** agent.
 
 ## Chosen libraries — decided, not yet installed
 

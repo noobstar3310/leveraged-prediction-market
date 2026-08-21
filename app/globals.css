@@ -1,116 +1,129 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Design tokens — see .claude/skills/design-system/SKILL.md
+   Design tokens — see DESIGN.md (repo root) for the full rationale.
 
-   Dark neumorphic / soft UI. Dark-only by design: this is a trading terminal,
-   not an app with a dark mode, so there is no prefers-color-scheme block.
+   Warm neutral (stone), FLAT, dual theme. There are no shadows: depth is
+   expressed by fill and border. A control's boundary IS its border, which is
+   why --border must clear 3:1 and --hairline must never be used on one.
 
-   THE RULE THAT MAKES THIS WORK: depth is scarce and means exactly one thing —
-   "you can touch this". Static content (headings, labels, rows, every price and
-   PnL) sits flat with zero shadow. Only interactive elements are extruded or
-   recessed. Data therefore cannot compete with depth, and anything with depth
-   is unambiguously a control.
-
-   The ground is oklch(0.285), not near-black. Below roughly L 0.24 the light
-   shadow lobe has no headroom and you get a drop shadow instead of an
-   extrusion — soft UI is impossible on a near-black canvas.
-
-   Contrast figures below were computed, not estimated, and independently
-   re-verified against WCAG relative luminance.
+   Dark is composed, not inverted. Every step was chosen against its own ground
+   and verified: light text 17.4:1, dark text 15.9:1, both control borders 3.5+.
 --------------------------------------------------------------------------- */
 
 :root {
+  color-scheme: light;
+
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --raised: #f4f2f0;
+
+  --text: #191513;
+  --muted: #57534e;
+  --faint: #78716c;
+
+  /* Decorative only — dividers, row rules. No contrast minimum. */
+  --hairline: #d9d3cf;
+  /* Interactive boundaries — 3.61:1 on #FAFAFA. The supplied #D9D3CF measures
+     1.48:1 and cannot carry a control edge under WCAG 1.4.11. */
+  --border: #8b827b;
+
+  --accent: #433f3b;
+
+  --long: #15803d;
+  --short: #b91c1c;
+  --warn: #a16207;
+
+  --selection: #e7e2de;
+
+  /* Canvas can't read CSS custom properties, and Lightning CSS rewrites
+     oklch()/lab() at build time into something third-party parsers reject.
+     These plain-hex mirrors are what chart code reads. */
+  --chart-bg: #ffffff;
+  --chart-text: #78716c;
+  --chart-grid: #e7e2de;
+  --chart-up: #15803d;
+  --chart-down: #b91c1c;
+  --chart-warn: #a16207;
+}
+
+/* Explicit choice wins over the system preference, in both directions. */
+:root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Planes — opaque fills, never alpha. */
-  --ground: oklch(0.285 0.012 265); /* #272A30  app plane, resting control fill */
-  --panel: oklch(0.305 0.012 265); /* #2C2F35  raised panel, one step up */
-  --well: oklch(0.255 0.013 265); /* #202329  recessed well, one step down */
-  /* Capped at L 0.32 deliberately. At L 0.34, --short on a hovered row falls to
-     4.40:1 and fails. This ceiling is load-bearing. */
-  --hover: oklch(0.32 0.014 265); /* #2F333A */
+  --bg: #191513;
+  --surface: #221e1b;
+  --raised: #2b2622;
 
-  /* Shadow lobes — the only two shadow colours in the system. */
-  --sh-dark: oklch(0.165 0.018 265); /* #0A0E16  bottom-right */
-  --sh-light: oklch(0.41 0.013 265); /* #474A52  top-left */
-  --edge-lit: oklch(0.44 0.014 265); /* #4F535B  1px inner top edge */
+  --text: #fafafa;
+  --muted: #c9c2bc;
+  --faint: #a8a29e;
 
-  /* A soft shadow is a gradient, and a gradient has no single adjacent colour,
-     so it can never satisfy WCAG 1.4.11. The rim is what actually defines a
-     control's edge. Neumorphism without a rim is the failure mode. */
-  --rim: oklch(0.6 0.016 265); /* #7B808A — 3.38:1 on panel */
+  --hairline: #3a3430;
+  --border: #7b7269; /* 3.51:1 on --surface */
 
-  --hairline: oklch(0.36 0.012 265); /* row separators — rows are not objects */
+  --accent: #d9d3cf;
 
-  /* Text — 12.31 / 6.69 / 4.64 on panel. All clear 4.5. */
-  --foreground: oklch(0.97 0.004 265); /* #F4F5F8 */
-  --muted: oklch(0.78 0.012 265); /* #B4B7BF  labels, secondary */
-  --faint: oklch(0.68 0.016 265); /* #9398A3  timestamps, disabled */
+  --long: #4ade80;
+  --short: #f87171;
+  --warn: #fbbf24;
 
-  /* Semantics — carried over verbatim from the flat system. Identical L and C
-     so neither side of the book reads louder. 5.78 / 5.02 / 6.54 on panel. */
-  --long: oklch(0.72 0.17 150); /* #3FC168 */
-  --short: oklch(0.72 0.17 25); /* #FD736D */
-  --warn: oklch(0.78 0.16 75); /* #F2A618 */
+  --selection: #3a3430;
 
-  /* Side rims for the YES/NO toggle — state carried by rim, not fill. */
-  --rim-long: oklch(0.62 0.15 150);
-  --rim-short: oklch(0.62 0.16 25);
+  --chart-bg: #221e1b;
+  --chart-text: #a8a29e;
+  --chart-grid: #3a3430;
+  --chart-up: #4ade80;
+  --chart-down: #f87171;
+  --chart-warn: #fbbf24;
+}
 
-  --focus: oklch(0.9 0.03 250); /* #D0E0F2 — 9.98:1 */
-  --selection: oklch(0.4 0.07 250);
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
 
-  /* --- Canvas-safe mirrors -------------------------------------------------
-     A <canvas> cannot read CSS custom properties, so chart libraries are handed
-     resolved strings instead. Reading the oklch() tokens above via
-     getComputedStyle returns lab(...) — Lightning CSS rewrites them at build
-     time — and third-party colour parsers reject that, which crashed the whole
-     detail page.
+    --bg: #191513;
+    --surface: #221e1b;
+    --raised: #2b2622;
 
-     These are the SAME colours authored in plain hex. A custom property holding
-     a hex literal is substituted verbatim, so getComputedStyle gives back
-     something any parser accepts. Keep them in sync with the tokens above; the
-     comment beside each names its source. */
-  --chart-bg: #272a30; /* = --ground   */
-  --chart-text: #9398a3; /* = --faint    */
-  --chart-grid: #3a3d44; /* = --hairline */
-  --chart-up: #3fc168; /* = --long     */
-  --chart-down: #fd736d; /* = --short    */
-  --chart-warn: #f2a618; /* = --warn     */
+    --text: #fafafa;
+    --muted: #c9c2bc;
+    --faint: #a8a29e;
 
-  /* --- Elevation. One light source, top-left, everywhere, always. ---------
-     Dark lobe +x +y, light lobe -x -y, blur about 2.3x offset. */
+    --hairline: #3a3430;
+    --border: #7b7269;
 
-  /* E1 — controls and content tiles: buttons, market cards, selects. */
-  --elev-1:
-    3px 3px 7px var(--sh-dark), -3px -3px 7px var(--sh-light),
-    inset 0 1px 0 var(--edge-lit);
+    --accent: #d9d3cf;
 
-  /* E2 — page-level panel: trade panel, table container, modal. Max 3/viewport. */
-  --elev-2:
-    8px 8px 18px var(--sh-dark), -7px -7px 16px var(--sh-light),
-    inset 0 1px 0 var(--edge-lit);
+    --long: #4ade80;
+    --short: #f87171;
+    --warn: #fbbf24;
 
-  /* Recessed well: inputs, slider tracks, the selected side of a toggle. */
-  --inset-well:
-    inset 4px 4px 9px var(--sh-dark), inset -3px -3px 8px var(--sh-light);
+    --selection: #3a3430;
 
-  /* Pressed. Applied on :active, instantly — never transitioned. */
-  --pressed:
-    inset 3px 3px 6px var(--sh-dark), inset -2px -2px 5px var(--sh-light);
+    --chart-bg: #221e1b;
+    --chart-text: #a8a29e;
+    --chart-grid: #3a3430;
+    --chart-up: #4ade80;
+    --chart-down: #f87171;
+    --chart-warn: #fbbf24;
+  }
 }
 
 @theme inline {
-  --color-ground: var(--ground);
-  --color-panel: var(--panel);
-  --color-well: var(--well);
-  --color-hover: var(--hover);
+  --color-ground: var(--bg);
+  --color-panel: var(--surface);
+  --color-well: var(--bg);
+  --color-hover: var(--raised);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
 
-  --color-rim: var(--rim);
+  --color-rim: var(--border);
+  --color-border: var(--border);
   --color-hairline: var(--hairline);
+  --color-accent: var(--accent);
 
-  --color-foreground: var(--foreground);
+  --color-foreground: var(--text);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
 
@@ -120,209 +133,173 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-tiktok-sans);
 
-  /* radius >= 2x shadow offset, floor 8px. Below that the highlight arc breaks
-     at the corner and the extrusion reads as a misprint. */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
   /* One curve. Never ease-in on UI. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
-
-/* ---------------------------------------------------------------------------
-   Elevation utilities
---------------------------------------------------------------------------- */
-
-@utility elev-1 {
-  box-shadow: var(--elev-1);
-}
-
-@utility elev-2 {
-  box-shadow: var(--elev-2);
-}
-
-/* ---------------------------------------------------------------------------
-   Numerics
-
-   Every value that updates — price, PnL, margin, liquidation price, countdown.
-   Geist Mono is monospaced so digits are equal-width by construction; the
-   declaration additionally locks tabular figures and a slashed zero so 0 and O
-   never read alike in an address or order id.
---------------------------------------------------------------------------- */
 
 @utility numeric {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
-/* ---------------------------------------------------------------------------
-   Controls
+/** Headlines only. Body and UI stay on Geist. */
+@utility display {
+  font-family: var(--font-display);
+}
 
-   If it has depth it is interactive, so every control carries: a rim (the
-   WCAG 1.4.11 boundary), E1 elevation, and an instant pressed state. Hover
-   changes the FILL only — animating box-shadow is paint-bound and banned.
+/* ---------------------------------------------------------------------------
+   Surfaces — flat
+
+   `.panel` is structure and is not interactive. `.control` is pressable and
+   carries a >=3:1 border, because with no shadow that border is the only thing
+   distinguishing it from the page.
 --------------------------------------------------------------------------- */
 
 @layer components {
-  /* Raised STRUCTURE, not affordance. Depth serves two roles and they must not
-     be confused: `.control` says "you can touch this" and responds to press;
-     `.panel` is a container that happens to sit above the ground. A panel has
-     no cursor change and no pressed state, so it never promises interactivity
-     it doesn't have. Interactive children carry their own affordance. */
   .panel {
-    background: var(--ground);
-    border: 1px solid var(--rim);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
     border-radius: var(--radius-lg);
-    box-shadow: var(--elev-1);
-    color: var(--foreground);
+    color: var(--text);
   }
 
   .control {
-    background: var(--ground);
-    border: 1px solid var(--rim);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    box-shadow: var(--elev-1);
-    color: var(--foreground);
+    color: var(--text);
     cursor: pointer;
     transition: background-color 120ms var(--ease-out);
   }
 
   .control:hover {
-    background: var(--hover);
+    background: var(--raised);
   }
 
   .control:active {
-    box-shadow: var(--pressed);
+    background: var(--hairline);
     transition: none;
   }
 
-  /* A disabled control that is still extruded still says "press me". Flattening
-     it is the one place removing depth carries meaning. */
+  /* A disabled control must not look pressable. */
   .control:disabled,
   .control[aria-disabled="true"] {
-    box-shadow: none;
-    border-color: var(--faint);
+    background: var(--bg);
+    border-color: var(--hairline);
     color: var(--faint);
     cursor: not-allowed;
   }
 
-  /* Any well containing text needs padding-inline >= 14px: the inset shadow
-     reaches ~13px inward, and --faint over the lit lobe measures only 3.06:1. */
   .well-field {
-    background: var(--well);
-    border: 1px solid var(--rim);
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    box-shadow: var(--inset-well);
-    color: var(--foreground);
-    padding-inline: 14px;
+    color: var(--text);
+    padding-inline: 12px;
+  }
+
+  .well-field:focus-visible {
+    border-color: var(--accent);
   }
 }
 
 /* ---------------------------------------------------------------------------
-   The surfaces we didn't draw
-
-   A focus ring at an offset would land on the shadow gradient, whose local
-   background runs from #474A52 to #0A0E16 — so its contrast would be a matter
-   of luck. The 2px opaque moat guarantees the ring's adjacent colour is always
-   --ground, making the 9.98:1 figure real rather than best-case.
+   The surfaces we didn't draw — selection, caret, scrollbars, focus rings.
 --------------------------------------------------------------------------- */
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--rim) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 ::selection {
   background: var(--selection);
-  color: var(--foreground);
+  color: var(--text);
 }
 
+/* Flat surfaces mean the ring lands on a known colour, so a plain offset is
+   predictable — no opaque moat needed. */
 :focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--ground),
-    0 0 0 4px var(--focus);
-}
-
-.control:focus-visible {
-  box-shadow:
-    var(--elev-1),
-    0 0 0 2px var(--ground),
-    0 0 0 4px var(--focus);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 input,
 textarea {
-  caret-color: var(--foreground);
+  caret-color: var(--text);
 }
 
 body {
-  background: var(--ground);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
 }
 
-/* ---------------------------------------------------------------------------
-   Solana wallet-adapter modal
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+}
 
-   The adapter's stylesheet hardcodes a light panel with a purple gradient and
-   exposes no CSS custom properties, so it has to be overridden by class name.
+/* ---------------------------------------------------------------------------
+   Solana wallet-adapter modal — its stylesheet hardcodes a light panel with a
+   purple gradient and exposes no custom properties, so it is overridden by class.
 --------------------------------------------------------------------------- */
 
 .wallet-adapter-modal-wrapper {
-  background: var(--panel);
-  border: 1px solid var(--rim);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--elev-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  color: var(--text);
   font-family: var(--font-sans);
 }
 
 .wallet-adapter-modal-overlay {
-  background: oklch(0.165 0.018 265 / 0.72);
+  background: rgb(25 21 19 / 0.6);
 }
 
 .wallet-adapter-modal-title {
-  color: var(--foreground);
+  color: var(--text);
+  font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 500;
 }
 
 .wallet-adapter-modal-list li,
 .wallet-adapter-modal-list .wallet-adapter-button {
-  background: var(--ground);
-  border: 1px solid var(--rim);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  box-shadow: var(--elev-1);
-  color: var(--foreground);
+  box-shadow: none;
+  color: var(--text);
   font-family: var(--font-sans);
   font-size: 0.875rem;
   font-weight: 400;
 }
 
 .wallet-adapter-modal-list .wallet-adapter-button:not([disabled]):hover {
-  background: var(--hover);
-}
-
-.wallet-adapter-modal-list .wallet-adapter-button:not([disabled]):active {
-  box-shadow: var(--pressed);
+  background: var(--raised);
 }
 
 .wallet-adapter-modal-list-more,
 .wallet-adapter-modal-button-close {
   background: transparent;
-  box-shadow: none;
   color: var(--muted);
 }
 
 .wallet-adapter-modal-button-close:hover {
-  background: var(--hover);
+  background: var(--raised);
 }
 
-/* Reduced motion: less movement, never less information. State changes that
-   convey a financial event still render — as instant colour/border changes. */
+/* Reduced motion: less movement, never less information. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

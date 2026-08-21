@@ -43,6 +43,8 @@ export function MarketCard({ market }: { market: Market }) {
         </h2>
       </div>
 
+      {/* Two series, so the Yes/No rows below double as the legend — same
+          colours, same values. */}
       <PriceChart points={history} label={market.question} />
 
       <div className="flex flex-col gap-2">

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { CLUSTER_LABEL, IS_MAINNET, SOLANA_CLUSTER } from "@/lib/solana/config";
 
 const LINKS = [
   { href: "/", label: "Markets" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/docs", label: "Docs" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
@@ -71,7 +73,8 @@ export function SiteNav() {
           })}
         </nav>
 
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex items-center gap-2">
+          <ThemeToggle />
           <WalletButton />
         </div>
       </div>

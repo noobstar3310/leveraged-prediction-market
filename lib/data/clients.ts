@@ -3,23 +3,21 @@
  *
  * Everything the UI knows about markets and positions is defined here. Components
  * import these types; they never import an adapter, and they never see a vendor's
- * response shape. Swapping Polymarket for our own Solana program means writing a
- * new implementation of these interfaces — not touching components.
+ * response shape. Swapping one backend for another means writing a new
+ * implementation of these interfaces — not touching components.
  *
  * See CLAUDE.md "Architecture rules".
  */
 
-export const MARKET_CATEGORIES = [
-  "Politics",
-  "Crypto",
-  "Economics",
-  "Geopolitics",
-  "Tech",
-  "Sports",
-  "Science",
-  "Culture",
-] as const;
-export type MarketCategory = (typeof MARKET_CATEGORIES)[number];
+/**
+ * Categories are DATA, not a fixed union.
+ *
+ * They used to be a hardcoded list of eight. They now come from whatever the
+ * live source actually returns, because a filter bar that offers "Science" when
+ * no market is tagged Science is a filter that always yields nothing. The UI
+ * receives the available set alongside the markets and renders that.
+ */
+export type MarketCategory = string;
 
 /** A binary outcome market. Prices are probabilities in [0, 1], not currency. */
 export type Market = {
@@ -39,8 +37,35 @@ export type Market = {
   volume24h: number;
   /** All-time traded volume, in USD. */
   volumeTotal: number;
-  /** ISO 8601 timestamp for when the market stops accepting trades. */
-  closesAt: string;
+  /**
+   * ISO 8601 timestamp for when the market stops accepting trades, or null when
+   * the source genuinely doesn't publish one. Nullable on purpose: inventing a
+   * close date would be fabricating data a trader might size a position against.
+   */
+  closesAt: string | null;
+};
+
+/** One point on a probability series. */
+export type PricePoint = {
+  /** ISO 8601. */
+  date: string;
+  /** Probability of YES in [0, 1]. */
+  price: number;
+};
+
+/**
+ * One OHLC bar of YES probability.
+ *
+ * `time` is a `YYYY-MM-DD` day stamp — lightweight-charts' business-day form,
+ * which is what the chart component already consumes.
+ */
+export type Candle = {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 };
 
 export const MARKET_SORTS = ["active", "volume", "closing", "competitive"] as const;
@@ -70,11 +95,12 @@ export type MarketPage = {
   totalMatching: number;
   /** How many markets exist in total, ignoring the query. */
   catalogueSize: number;
+  /** Every category present in the catalogue, for the filter bar. */
+  categories: MarketCategory[];
   /**
    * True when these markets are fabricated rather than real. The UI must say so
-   * — the design system forbids presenting invented figures as real data, and
-   * every price and volume here is invented. Flips to false automatically once
-   * a real adapter backs this interface.
+   * — the design system forbids presenting invented figures as real data.
+   * False for any adapter backed by a live source.
    */
   isMockData: boolean;
 };
@@ -83,6 +109,16 @@ export interface MarketsClient {
   listMarkets(query?: MarketQuery): Promise<MarketPage>;
   /** A single market by slug, or null when it doesn't exist. */
   getMarket(slug: string): Promise<Market | null>;
+  /**
+   * Probability history for a set of markets, keyed by market id.
+   *
+   * Batched rather than per-market: a card grid needs a sparkline for every
+   * tile at once, and one request for six series beats six requests. A market
+   * with no history maps to an empty array — never to invented points.
+   */
+  getHistories(markets: Market[]): Promise<Map<string, PricePoint[]>>;
+  /** OHLC bars for the detail chart. */
+  getCandles(market: Market): Promise<Candle[]>;
 }
 
 /**

@@ -24,13 +24,28 @@ type Props = {
   label: string;
 };
 
-/** Round, human gridline levels inside a domain — 5% steps, at most four. */
+/**
+ * Round, human gridline levels inside a domain — 5% steps, at most four.
+ *
+ * `EDGE_MARGIN` drops any level that would render hard against the frame. The
+ * axis labels are absolutely positioned with -translate-y-1/2 inside an
+ * overflow-hidden box, so a level sitting exactly on the domain boundary has
+ * its label sliced in half. Real market data hits this constantly: a binary
+ * market's two series are complements, so the domain lands on round numbers
+ * (0.25/0.75 pads to exactly 0.20/0.80) and `Math.ceil(lo / step) * step`
+ * returns `lo` itself.
+ */
+const EDGE_MARGIN = 0.06;
+
 function gridLevels(lo: number, hi: number): number[] {
   const stepChoices = [0.05, 0.1, 0.2, 0.25];
   const span = hi - lo;
   const step = stepChoices.find((s) => span / s <= 4) ?? 0.25;
+  const divisor = span || 1;
   const levels: number[] = [];
   for (let v = Math.ceil(lo / step) * step; v < hi; v += step) {
+    const fraction = (v - lo) / divisor;
+    if (fraction < EDGE_MARGIN || fraction > 1 - EDGE_MARGIN) continue;
     levels.push(Number(v.toFixed(4)));
   }
   return levels;

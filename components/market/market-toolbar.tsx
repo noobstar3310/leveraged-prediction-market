@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import {
-  MARKET_CATEGORIES,
   MARKET_SORTS,
   type MarketCategory,
   type MarketSort,
@@ -76,7 +75,21 @@ export function MarketSearch({ search, category, sort }: State) {
  * filters. Sort gets the same treatment because four options as links read
  * better than a select that needs an Apply button beside it.
  */
-export function MarketToolbar({ search, category, sort }: State) {
+export function MarketToolbar({
+  search,
+  category,
+  sort,
+  categories,
+}: State & {
+  /**
+   * The categories actually present in the catalogue.
+   *
+   * Passed in rather than imported from a constant: the source decides what
+   * exists, and a tab that filters to zero markets every time is worse than no
+   * tab at all.
+   */
+  categories: MarketCategory[];
+}) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-hairline">
       <nav aria-label="Category" className="flex items-center overflow-x-auto">
@@ -87,7 +100,7 @@ export function MarketToolbar({ search, category, sort }: State) {
         >
           All
         </Link>
-        {MARKET_CATEGORIES.map((c) => (
+        {categories.map((c) => (
           <Link
             key={c}
             href={href({ search, category: c, sort })}

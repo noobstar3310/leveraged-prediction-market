@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { mockMarketsClient } from "@/lib/data/mock";
-import { candlesFor } from "@/lib/data/mock/candles";
+import { getMarketsClient } from "@/lib/data";
 import { MarketTerminal } from "@/components/trade/market-terminal";
 import {
   formatCloseDate,
@@ -16,7 +15,8 @@ export async function generateMetadata({
   params,
 }: PageProps<"/markets/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const market = await mockMarketsClient.getMarket(slug);
+  const client = await getMarketsClient();
+  const market = await client.getMarket(slug);
   return { title: market ? `${market.question} · Leveraged` : "Market not found" };
 }
 
@@ -24,10 +24,11 @@ export default async function MarketDetailPage({
   params,
 }: PageProps<"/markets/[slug]">) {
   const { slug } = await params;
-  const market = await mockMarketsClient.getMarket(slug);
+  const client = await getMarketsClient();
+  const market = await client.getMarket(slug);
   if (!market) notFound();
 
-  const candles = candlesFor(market);
+  const candles = await client.getCandles(market);
   const previous = candles[candles.length - 2]?.close ?? market.yesPrice;
   const change = market.yesPrice - previous;
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/leverage";
 import { usePositions } from "@/lib/positions/store";
 import { useBalances } from "@/components/wallet/balances-provider";
+import { GAS_SYMBOL } from "@/lib/chain/config";
 import { USDC_SYMBOL } from "@/lib/wallet/usdc";
 import { formatPrice } from "@/lib/format";
 
@@ -35,7 +36,7 @@ function usd(value: number): string {
  */
 export function PortfolioSummary({ markets }: { markets: Market[] }) {
   const stored = usePositions();
-  const { usdc, sol } = useBalances();
+  const { usdc, gas } = useBalances();
 
   const priceFor = (marketId: string) =>
     markets.find((m) => m.id === marketId)?.yesPrice ?? null;
@@ -92,7 +93,7 @@ export function PortfolioSummary({ markets }: { markets: Market[] }) {
         <div className="border-t border-hairline pt-3">
           <Row
             label="Gas balance"
-            value={sol === null ? "—" : `${sol.toFixed(3)} SOL`}
+            value={gas === null ? "—" : `${gas.toFixed(3)} ${GAS_SYMBOL}`}
           />
         </div>
       </section>

@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-import type { Market } from "@/lib/data/clients";
-import { priceHistoryFor } from "@/lib/data/mock/price-history";
+import type { Market, PricePoint } from "@/lib/data/clients";
 import { PriceChart } from "@/components/market/price-chart";
 import {
   formatCloseDate,
@@ -21,8 +20,14 @@ import {
  * This is a `.panel`, not a `.control`: it holds interactive children (the
  * heading link and the chart), so it must not claim to be pressable itself.
  */
-export function MarketCard({ market }: { market: Market }) {
-  const history = priceHistoryFor(market);
+export function MarketCard({
+  market,
+  history,
+}: {
+  market: Market;
+  /** Supplied by the caller via the data seam — never generated in here. */
+  history: PricePoint[];
+}) {
 
   return (
     <div className="panel flex h-full flex-col gap-4 p-5">
@@ -45,7 +50,15 @@ export function MarketCard({ market }: { market: Market }) {
 
       {/* Two series, so the Yes/No rows below double as the legend — same
           colours, same values. */}
-      <PriceChart points={history} label={market.question} />
+      {/* A market with no published history renders a labelled gap rather than
+          an invented line — the chart is what a trader reads the trend off. */}
+      {history.length >= 2 ? (
+        <PriceChart points={history} label={market.question} />
+      ) : (
+        <div className="flex h-24 items-center justify-center rounded-sm border border-dashed border-hairline">
+          <span className="text-[11px] text-faint">no price history yet</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <OutcomeRow label="Yes" price={market.yesPrice} side="long" />

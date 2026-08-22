@@ -1,10 +1,10 @@
 /**
  * Leverage maths — PURE.
  *
- * No React, no Solana, no fetch, no imports from anywhere else in the app. Just
+ * No React, no chain code, no fetch, no imports from anywhere else in the app. Just
  * functions over numbers. This is the one module here that can be wrong without
  * looking wrong on screen, which is why it is the only place TDD is mandatory.
- * It doubles as the executable spec for the future Solana program.
+ * It doubles as the executable spec for the future BNB Chain contract.
  *
  * ## The model
  *

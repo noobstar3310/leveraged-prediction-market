@@ -13,12 +13,9 @@
 
 import type { Market } from "@/lib/data/clients";
 
-export type PricePoint = {
-  /** ISO 8601, midnight UTC. */
-  date: string;
-  /** Probability of YES in [0, 1]. */
-  price: number;
-};
+// Defined on the seam so both adapters produce the same shape.
+export type { PricePoint } from "@/lib/data/clients";
+import type { PricePoint } from "@/lib/data/clients";
 
 /** Frozen "today" for the mock dataset. Keeps every series reproducible. */
 const AS_OF = Date.UTC(2026, 7, 17); // 2026-08-17

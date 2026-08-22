@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useAccount, useConnect } from "wagmi";
 import { Check } from "lucide-react";
 
 import type { Market } from "@/lib/data/clients";
@@ -21,6 +20,7 @@ import { openPosition } from "@/lib/positions/store";
 import { notifyOrderPlaced } from "@/components/ui/toast";
 import { useBalances } from "@/components/wallet/balances-provider";
 import { USDC_FAUCET_URL, USDC_SYMBOL } from "@/lib/wallet/usdc";
+import { DEFAULT_CHAIN, GAS_SYMBOL } from "@/lib/chain/config";
 import { formatPrice } from "@/lib/format";
 
 const PRESET_MARGINS = [25, 100, 500, 1000];
@@ -74,8 +74,8 @@ export function TradePanel({
   liquidation,
 }: Props) {
   const router = useRouter();
-  const { connected } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { isConnected: connected } = useAccount();
+  const { connectors, connect } = useConnect();
   const { usdc } = useBalances();
 
   const effectiveLeverage = requirement.effectiveLeverage;
@@ -253,7 +253,13 @@ export function TradePanel({
       {!connected ? (
         <button
           type="button"
-          onClick={() => setVisible(true)}
+          onClick={() => {
+            // First discovered wallet. EIP-6963 announces each installed wallet
+            // separately, so this is a real choice rather than a guess at
+            // window.ethereum — and the nav button offers the full list.
+            const connector = connectors[0];
+            if (connector) connect({ connector, chainId: DEFAULT_CHAIN.id });
+          }}
           className="control h-10 w-full text-sm font-medium"
         >
           Connect wallet to trade
@@ -288,7 +294,7 @@ export function TradePanel({
             target="_blank"
             rel="noreferrer"
             className="underline underline-offset-2"
-            title={`The SOL faucet does not issue ${USDC_SYMBOL}`}
+            title={`The BNB faucet issues gas, not ${USDC_SYMBOL}`}
           >
             Get {USDC_SYMBOL} →
           </a>
@@ -311,7 +317,7 @@ export function TradePanel({
         </summary>
         <p className="mt-2 text-[10px] leading-relaxed text-faint">
           No order is routed and no money moves. Collateral, size and payouts are
-          in {USDC_SYMBOL}; SOL pays network fees only. Trading fees, funding and
+          in {USDC_SYMBOL}; {GAS_SYMBOL} pays network fees only. Trading fees, funding and
           maintenance margin are not modelled, so the liquidation price above is
           the optimistic bound — a real venue would close the position sooner.
         </p>

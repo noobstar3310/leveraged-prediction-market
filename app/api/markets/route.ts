@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
-  MARKET_CATEGORIES,
   MARKET_SORTS,
   MarketDataError,
-  type MarketCategory,
   type MarketSort,
 } from "@/lib/data/clients";
-import { mockMarketsClient } from "@/lib/data/mock";
+import { getMarketsClient } from "@/lib/data";
 
 const MAX_LIMIT = 200;
 
@@ -27,10 +25,10 @@ export async function GET(request: Request) {
     ? (rawSort as MarketSort)
     : "active";
 
-  const rawCategory = params.get("category") ?? "";
-  const category = (MARKET_CATEGORIES as readonly string[]).includes(rawCategory)
-    ? (rawCategory as MarketCategory)
-    : undefined;
+  // Categories come from the source now, so there is no fixed list to validate
+  // against. An unknown value simply matches nothing.
+  const rawCategory = (params.get("category") ?? "").slice(0, 60);
+  const category = rawCategory || undefined;
 
   const rawLimit = Number(params.get("limit"));
   const limit =
@@ -42,7 +40,8 @@ export async function GET(request: Request) {
   const minVolume = Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 0;
 
   try {
-    const page = await mockMarketsClient.listMarkets({
+    const client = await getMarketsClient();
+    const page = await client.listMarkets({
       search: params.get("q") ?? undefined,
       category,
       sort,

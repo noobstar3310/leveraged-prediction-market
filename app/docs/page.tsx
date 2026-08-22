@@ -23,7 +23,7 @@ export default function DocsPage() {
     <main className="mx-auto w-full max-w-[1180px] px-4 py-10 sm:px-6">
       <header className="border-b border-hairline pb-8">
         <p className="text-[11px] tracking-[0.14em] text-faint uppercase">
-          Protocol design · Solana
+          Protocol design · BNB Chain
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Leveraged Outcomes Protocol
@@ -35,10 +35,12 @@ export default function DocsPage() {
         </p>
         <p className="mt-7 max-w-[68ch] rounded-md border border-warn px-4 py-3 text-sm text-foreground">
           <strong className="text-warn">Nothing here is deployed.</strong> No
-          Solana program exists yet. The front end runs entirely on fabricated
-          data, and the margin maths lives in a tested TypeScript module that is
-          meant to become this program&apos;s specification. Treat every section
-          as intent, not description.
+          on-chain contract exists yet. Market data is live from predict.fun on
+          BNB Chain, but every position, price fill and payout is simulated in
+          the browser — no order is routed and no money moves. The margin maths
+          lives in a tested TypeScript module meant to become this
+          contract&apos;s specification. Treat every section as intent, not
+          description.
         </p>
       </header>
 
@@ -125,8 +127,8 @@ export default function DocsPage() {
                 USDC is the only settlement asset.
               </strong>{" "}
               Collateral, position size, PnL and payouts are all denominated in it.
-              SOL is used exclusively for transaction fees and rent — it is never
-              traded and never posted as margin.
+              BNB is used exclusively for transaction fees — it is never traded
+              and never posted as margin.
             </P>
           </Section>
 
@@ -444,7 +446,7 @@ const LIFECYCLE = [
 
 const STATUS_ROWS: [string, string, string, string][] = [
   ["Binary shares paying 0 or 1", "decided", "Decided", "Multi-outcome deliberately excluded"],
-  ["USDC settlement, SOL for gas", "decided", "Decided", "SOL is never collateral"],
+  ["USDC settlement, BNB for gas", "decided", "Decided", "BNB is never collateral"],
   ["Margin, liquidation, payout maths", "decided", "Decided", "Implemented and tested off-chain"],
   ["Tiered margin, 20× ceiling", "decided", "Decided", "Verified against a live venue's published tiers"],
   ["Maintenance margin buffer", "none", "Not built", "Liquidation currently equals bankruptcy price"],
@@ -452,7 +454,7 @@ const STATUS_ROWS: [string, string, string, string][] = [
   ["Resolution & oracle", "open", "Open", "Highest-consequence unresolved decision"],
   ["Gap risk mitigation", "open", "Open", "Decaying leverage proposed, not specified"],
   ["Fee rates", "open", "Open", "Coupled to the liquidity decision"],
-  ["Solana program", "none", "Not started", "No Anchor code exists"],
+  ["BNB Chain contract", "none", "Not started", "No contract code exists"],
 ];
 
 type ChipStatus = "decided" | "open" | "none";

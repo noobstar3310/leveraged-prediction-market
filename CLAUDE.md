@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Leveraged Prediction Market (Solana)
+# Leveraged Prediction Market (BNB Chain)
 
 A prediction market where users bet on real-world outcomes **with up to 20x leverage**.
 The leverage is the product — plain prediction markets already exist; this one lets a
@@ -25,9 +25,14 @@ the odds move against them before resolution.
 - **Positions** — opened from the trade panel into `localStorage`
   ([lib/positions/store.ts](lib/positions/store.ts)), valued live on
   [app/portfolio/page.tsx](app/portfolio/page.tsx) with PnL, liquidation and health.
-- **Nav + wallet** — real Solana wallet-adapter connection, network badge derived from the RPC
-  endpoint. USDC is the settlement asset (real SPL balance, cluster-aware mint); SOL is gas only.
-  Opening a position is gated on holding enough USDC.
+- **Nav + wallet** — real EVM connection via wagmi, connectors discovered through EIP-6963
+  (MetaMask, Trust, Rabby, Binance Wallet — no per-wallet adapter list). The network badge is
+  derived from the chain the wallet reports, never hardcoded. USDC is the settlement asset
+  (real BEP-20 balance, chain-aware address); BNB is gas only. Opening a position is gated on
+  holding enough USDC.
+
+  **USDC is 18 decimals on BNB Chain**, not the 6 it uses on Ethereum and Solana. Both token
+  addresses in [lib/wallet/usdc.ts](lib/wallet/usdc.ts) were verified on-chain.
 - **Theming** — light and dark, switchable from the nav, persisted to `localStorage` with an
   inline pre-paint script so there is no flash. Both palettes contrast-verified.
 
@@ -35,8 +40,12 @@ Not built: closing a position with realised PnL, market resolution/settlement, f
 rates, and the maintenance-margin cushion (our liquidation price is still the *bankruptcy*
 price — see the note in lib/leverage).
 
-**The Solana program does not exist and is out of scope.** Do not write Anchor code,
-Rust, or on-chain integration until explicitly asked. This is a frontend project right now.
+**The on-chain contract does not exist and is out of scope.** Do not write Solidity or
+on-chain integration until explicitly asked. This is a frontend project right now.
+
+**Pivoted from Solana to BNB Chain.** Market data is now live from predict.fun; the wallet
+is EVM (wagmi + viem, BNB Smart Chain). There is no Solana code left — do not reintroduce
+`@solana/*`, Anchor, or an SPL token path.
 
 ## Domain model
 
@@ -60,7 +69,8 @@ must communicate, and it is the main thing that distinguishes this from Polymark
 ## Stack
 
 Next.js 16.3.1 (App Router) · React 19.2.8 · TypeScript · Tailwind v4 · ESLint.
-No `src/` directory — the app router lives at [app/](app/).
+wagmi + viem + TanStack Query for the wallet. No `src/` directory — the app router lives
+at [app/](app/).
 
 **Next.js 16 differs from most training data.** Read the relevant guide in
 `node_modules/next/dist/docs/` before writing routing, caching, server component, or
@@ -74,41 +84,91 @@ In scope:
    live liquidation price and payout preview, confirm.
 3. **Portfolio** — open positions with unrealized PnL, health / liquidation proximity,
    close action; plus settled position history.
-4. **Wallet connect** — Solana wallet adapter, address + balance, trading gated on connection.
+4. **Wallet connect** — EVM wallet (wagmi/viem) on BNB Smart Chain, address + balance,
+   trading gated on connection.
 
 Out of scope for now: leaderboard, social/share cards, real on-chain execution, order books,
 multi-outcome (non-binary) markets.
 
-## Data sources — everything is mocked
+## Data sources — live, from predict.fun
 
-**All data is fabricated.** Markets, prices, volumes, close dates, wallet balance, positions,
-PnL. There is no live data source and no network call anywhere in the app.
+**Market data is real.** Questions, prices, volumes, categories and price history all come
+from the predict.fun REST API (BNB Chain) at request time. `MarketPage.isMockData` is now
+`false`, and no screen fabricates a figure.
 
-Market fixtures live in [lib/data/mock/markets.ts](lib/data/mock/markets.ts). They are
-deterministic — no `Date.now()`, no randomness — so a market always renders identically.
+**Positions are still simulated.** Opening a position writes to `localStorage`; no order is
+routed and no money moves. The trade panel says so.
 
-**The page-level "demo data" banners were removed at the product owner's request.**
-`MarketPage.isMockData` still reports truthfully so a future surface can use it, and the trade
-panel still says no order is routed — but no screen announces that its figures are invented.
-Don't re-add a banner without asking; it was a deliberate call, not an oversight.
+- The observed API contract is documented in
+  [../predict-fun-explorer/SCHEMA.md](../predict-fun-explorer/SCHEMA.md) — written from real
+  responses, not from vendor docs. **Read it before touching `lib/predict/`.**
+- `lib/predict/` is the raw HTTP client: rate limiter, retry, typed parse.
+- `lib/data/predict/` is the adapter that maps the API onto our `Market` type.
+- The mock catalogue in `lib/data/mock/` is retained as an offline fallback. Set
+  `NEXT_PUBLIC_USE_MOCK_DATA=1` to use it.
 
-We previously pulled live market data from Polymarket and removed it. Two reasons worth
-remembering before anyone suggests putting it back: Polymarket is Polygon/USDC, so its IDs and
-prices would never map onto our Solana program; and it is DNS-blocked by Malaysian ISPs, so it
-does not resolve on the primary dev machine without a VPN or a DNS override.
+### Testnet / mainnet switch
+
+The navbar carries a **Data** toggle (`components/nav/network-switch.tsx`). It changes which
+predict.fun network the app READS FROM — it is not the wallet's chain, and the two can
+legitimately disagree.
+
+- The choice is a cookie, read server-side by `lib/data/network.ts`, flipped by the Server
+  Action in `app/actions/network.ts`. It has to be server-side because the API key must never
+  reach the browser.
+- `getMarketsClient()` returns a client bound to that network. There is no module-level
+  client — a singleton would pin whichever network was selected at first evaluation.
+- **The catalogue cache is keyed by network.** A shared slot would serve testnet's markets
+  after a switch to mainnet, silently and looking correct.
+- **Mainnet requires `PREDICT_API_KEY`.** Every route — markets, categories, tags, quotes —
+  returns `401 authorization error` without one; verified directly. Testnet reads are
+  completely open. The toggle marks mainnet with an asterisk when no key is configured and
+  the page explains what to set, rather than surfacing a bare 401.
+
+### API traps that have already cost time
+
+Every one of these was hit for real. They are silent failures, not errors:
+
+- **Page size is `first`.** `limit`, `pageSize` and `take` are ignored — you get 20 rows and
+  no error.
+- **Cursor asymmetry.** You read `cursor` from the response and send it back as `after`.
+- **`status` means two things.** The filter enum is `OPEN|RESOLVED`; the field returns
+  `REGISTERED|…|RESOLVED`. Filtering by a value you just read returns zero rows silently.
+- **Timeseries `y` is a whole-number percentage** (49 means 49%), while every other price is
+  in [0, 1]. Convert exactly once, at the adapter boundary.
+- **Timeseries caps at 250 points per market regardless of `limit`, and drops the NEWEST
+  points.** An unpaginated hourly request for a month returns the first ten days and looks
+  perfectly healthy while being weeks stale. Paginate, or use a resolution that fits.
+- **Markets carry no close time.** `endsAt` lives on the *category*; a market only points at
+  one by `categorySlug`. Some categories have no tags and no `endsAt` at all.
+- **`/categories` 500s on any `sort` value**, leaking a Postgres error about a missing
+  materialized view. Unsorted works.
+- **`/search` returns 500** — broken upstream. We filter in memory instead.
+
+Previously we pulled from Polymarket and removed it: it is Polygon/USDC (so its IDs never
+mapped onto our chain), and it is DNS-blocked by Malaysian ISPs.
 
 ## Architecture rules
 
-**1. `lib/leverage/` is pure.** No React, no Solana, no `fetch`, no imports from anywhere else
-in the app. Just functions over numbers: margin, liquidation price, PnL, health, fees.
+**1. `lib/leverage/` is pure.** No React, no chain code, no `fetch`, no imports from anywhere
+else in the app. Just functions over numbers: margin, liquidation price, PnL, health, fees.
 It is the one thing here that can be wrong without looking wrong on screen — so it is
 also the one thing that must be test-driven. It doubles as the executable spec for the
-future Solana program.
+future BNB Chain contract.
 
 **2. UI never touches a data source directly.** All data access goes through typed interfaces
-in `lib/data/`. Components consume the interface; adapters (mock now, Anchor later) implement it.
-Swapping the backend must not mean touching components — this has already been exercised once,
-replacing a live adapter with the mock one without changing a single component.
+in `lib/data/clients.ts`. Components consume the interface; adapters implement it. The adapter
+is chosen in exactly one place, [lib/data/index.ts](lib/data/index.ts) — import `marketsClient`
+from there, never an adapter by name.
+
+This has now been exercised three times (live Polymarket → mock → live predict.fun). The
+predict.fun swap needed no component changes except removing one leak: `market-card.tsx` was
+importing `priceHistoryFor` straight from the mock module, so sparklines could never show
+anything but fabricated history. **Price history and candles now come through the interface**
+(`getHistories`, `getCandles`). Don't reintroduce a direct import.
+
+**Categories are data, not a constant.** The old hardcoded list of eight is gone; the filter
+bar renders whatever the source actually returns, via `MarketPage.categories`.
 
 **3. Money and probability are never raw floats in the UI.** Format through shared helpers so
 prices, percentages, and PnL render consistently everywhere.
@@ -131,8 +191,12 @@ lib/
   leverage/                     PURE math — TDD, no framework imports
   data/
     clients.ts                  typed interfaces — the seam
-    mock/                       markets, account balance, positions (all fabricated)
-  wallet/                       Solana wallet adapter setup
+    index.ts                    adapter selection — import marketsClient from here
+    predict/                    live predict.fun adapter
+    mock/                       fabricated fallback (NEXT_PUBLIC_USE_MOCK_DATA=1)
+  wallet/                       BEP-20 USDC token config
+  chain/                        wagmi config, BNB network labels
+  predict/                      raw predict.fun HTTP client
 components/
   ui/                           style-only primitives
   trade/                        trade panel, leverage slider, liq. readout

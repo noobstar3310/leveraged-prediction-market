@@ -1,55 +1,49 @@
-import { PublicKey, type Connection } from "@solana/web3.js";
-
-import { SOLANA_CLUSTER } from "@/lib/solana/config";
-
 /**
- * USDC — the settlement asset for every trade.
+ * USDC on BNB Chain — the settlement asset.
  *
- * Collateral, position size, PnL and payouts are all denominated in USDC. SOL is
- * only ever used to pay transaction fees; it is never traded.
+ * Collateral, position size, PnL and payouts are all denominated in USDC. BNB
+ * is only ever used for gas.
  *
- * The mint differs per cluster, so it is resolved from the configured RPC rather
- * than hardcoded — pointing at mainnet with the devnet mint would silently
- * report a zero balance forever.
- *
- * Verified against devnet: the devnet mint below is owned by the Token program,
- * initialized, with 6 decimals.
+ * Both addresses below were verified on-chain (symbol + decimals read via
+ * eth_call) rather than copied from memory. Note the decimals: USDC is 18 on
+ * BNB Chain, NOT the 6 it uses on Ethereum and Solana. Getting this wrong
+ * misreports a balance by a factor of a trillion.
  */
-const MINTS: Record<string, string> = {
-  devnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-  mainnet: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-};
-
-/** Null when the configured cluster has no known USDC mint (testnet, custom). */
-export const USDC_MINT: PublicKey | null = MINTS[SOLANA_CLUSTER]
-  ? new PublicKey(MINTS[SOLANA_CLUSTER])
-  : null;
+import { bsc, bscTestnet } from "wagmi/chains";
 
 export const USDC_SYMBOL = "USDC";
 
-/** Where to get devnet USDC. The SOL faucet does not hand this out. */
-export const USDC_FAUCET_URL = "https://faucet.circle.com";
+export const USDC_BY_CHAIN: Record<number, { address: `0x${string}`; decimals: number }> =
+  {
+    [bsc.id]: {
+      address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      decimals: 18,
+    },
+    [bscTestnet.id]: {
+      address: "0x64544969ed7EBf5f083679233325356EbE738930",
+      decimals: 18,
+    },
+  };
+
+/** Minimal BEP-20 surface — balanceOf is all we read. */
+export const ERC20_ABI = [
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
+export const usdcFor = (chainId: number | undefined) =>
+  chainId === undefined ? undefined : USDC_BY_CHAIN[chainId];
 
 /**
- * The owner's USDC balance, summed across token accounts.
+ * Where a user obtains USDC.
  *
- * A wallet can hold more than one account for the same mint, so summing is
- * correct where reading only the associated token account would under-report.
- * Returns 0 — not null — when no account exists, because "you hold none" is a
- * known fact, not an unknown one.
+ * On testnet the BNB Chain faucet is the only sanctioned source, and it issues
+ * gas plus a small set of test tokens — it is not a dedicated USDC tap, which
+ * the link text must not imply. On mainnet, USDC is bridged or bought.
  */
-export async function fetchUsdcBalance(
-  connection: Connection,
-  owner: PublicKey,
-): Promise<number> {
-  if (!USDC_MINT) return 0;
-  const { value } = await connection.getParsedTokenAccountsByOwner(owner, {
-    mint: USDC_MINT,
-  });
-  return value.reduce((sum, { account }) => {
-    const parsed = account.data.parsed as
-      | { info?: { tokenAmount?: { uiAmount?: number | null } } }
-      | undefined;
-    return sum + (parsed?.info?.tokenAmount?.uiAmount ?? 0);
-  }, 0);
-}
+export const USDC_FAUCET_URL = "https://www.bnbchain.org/en/testnet-faucet";

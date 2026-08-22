@@ -64,7 +64,10 @@ export function formatUsdCompact(amount: number): string {
  * Only safe in server-rendered output — it reads the current date, so rendering
  * it on both server and client across a year boundary could disagree.
  */
-export function formatCloseDate(iso: string): string {
+export function formatCloseDate(iso: string | null): string {
+  // Null is a real answer here: not every source publishes a close date, and a
+  // dash is honest where an invented date would not be.
+  if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
   const isThisYear = date.getUTCFullYear() === new Date().getUTCFullYear();

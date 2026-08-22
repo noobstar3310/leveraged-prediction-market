@@ -1,12 +1,12 @@
 import {
-  MARKET_CATEGORIES,
   MARKET_SORTS,
   MarketDataError,
   type MarketCategory,
   type MarketPage,
   type MarketSort,
+  type PricePoint,
 } from "@/lib/data/clients";
-import { mockMarketsClient } from "@/lib/data/mock";
+import { getMarketsClient } from "@/lib/data";
 import {
   MarketSearch,
   MarketToolbar,
@@ -26,10 +26,13 @@ function parseSort(value: string): MarketSort {
     : "active";
 }
 
+/**
+ * Categories are data now, so an unknown value can't be rejected up front — it
+ * is simply passed through and matches nothing, which the empty state handles.
+ * Length-capped so a hostile query string can't bloat the rendered markup.
+ */
 function parseCategory(value: string): MarketCategory | "" {
-  return (MARKET_CATEGORIES as readonly string[]).includes(value)
-    ? (value as MarketCategory)
-    : "";
+  return value.slice(0, 60);
 }
 
 export default async function MarketsPage({ searchParams }: PageProps<"/">) {
@@ -39,15 +42,22 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
   const sort = parseSort(first(params.sort));
 
   let page: MarketPage | null = null;
+  let histories = new Map<string, PricePoint[]>();
   let errorMessage: string | null = null;
 
   try {
-    page = await mockMarketsClient.listMarkets({
+    const client = await getMarketsClient();
+    const result = await client.listMarkets({
       search,
       category: category || undefined,
       sort,
       limit: PAGE_SIZE,
     });
+    page = result;
+    // Sparklines come through the seam, batched for the whole page. Cards used
+    // to reach into the mock generator themselves, which meant the grid could
+    // never render anything but fabricated history.
+    histories = await client.getHistories(result.markets);
   } catch (error) {
     // A blank grid reads to a user as "no markets exist" rather than "the
     // request failed", so failures always render an explicit error state.
@@ -67,7 +77,12 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
       </header>
 
       <div className="mb-6">
-        <MarketToolbar search={search} category={category} sort={sort} />
+        <MarketToolbar
+          search={search}
+          category={category}
+          sort={sort}
+          categories={page?.categories ?? []}
+        />
       </div>
 
       {page && page.markets.length > 0 && (
@@ -83,7 +98,7 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
       ) : !page || page.markets.length === 0 ? (
         <EmptyState search={search} />
       ) : (
-        <MarketGrid markets={page.markets} />
+        <MarketGrid markets={page.markets} histories={histories} />
       )}
     </main>
   );

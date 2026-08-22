@@ -1,18 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
 import { useBalances } from "@/components/wallet/balances-provider";
 import { USDC_SYMBOL } from "@/lib/wallet/usdc";
-
-const SOL_FAUCET_URL = "https://faucet.solana.com";
+import {
+  DEFAULT_CHAIN,
+  FAUCET_URL,
+  GAS_SYMBOL,
+  SUPPORTED_CHAINS,
+} from "@/lib/chain/config";
 
 const BTN = "control h-9 px-3 text-xs";
 
 function truncate(address: string): string {
-  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 /**
@@ -20,18 +23,21 @@ function truncate(address: string): string {
  *
  * Shows BOTH balances because they do different jobs: USDC is what you trade
  * with — collateral, position size, PnL and payouts are all denominated in it —
- * and SOL only ever pays transaction fees. Showing SOL alone implied it was the
- * trading asset.
+ * and BNB only ever pays transaction fees.
  *
- * Built on the useWallet + useWalletModal hooks rather than the adapter's stock
- * WalletMultiButton, whose default stylesheet renders a purple gradient button —
- * on the design system's forbidden list.
+ * Connectors come from EIP-6963 discovery, so each installed wallet announces
+ * itself and we render one button per wallet. No stock modal is used: the
+ * adapter-style modals ship their own stylesheets, which the design system
+ * forbids.
  */
 export function WalletButton() {
-  const { publicKey, connected, connecting, disconnect } = useWallet();
-  const { setVisible } = useWalletModal();
-  const { usdc, sol } = useBalances();
+  const { address, isConnected, chainId } = useAccount();
+  const { connectors, connect, isPending } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain();
+  const { usdc, gas } = useBalances();
 
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -42,9 +48,9 @@ export function WalletButton() {
   }, []);
 
   const copyAddress = useCallback(async () => {
-    if (!publicKey) return;
+    if (!address) return;
     try {
-      await navigator.clipboard.writeText(publicKey.toBase58());
+      await navigator.clipboard.writeText(address);
       setCopied(true);
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(() => setCopied(false), 1500);
@@ -52,17 +58,59 @@ export function WalletButton() {
       // Clipboard can be blocked by permissions or a non-secure context. The
       // address is on screen either way, so failing quietly is acceptable.
     }
-  }, [publicKey]);
+  }, [address]);
 
-  if (!connected || !publicKey) {
+  if (!isConnected || !address) {
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          disabled={isPending}
+          aria-expanded={open}
+          className={BTN}
+        >
+          {isPending ? "Connecting…" : "Connect wallet"}
+        </button>
+
+        {open && (
+          <div className="panel absolute top-full right-0 z-30 mt-1 flex w-56 flex-col p-1">
+            {connectors.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-muted">
+                No browser wallet detected. Install MetaMask, Trust or Rabby.
+              </p>
+            ) : (
+              connectors.map((connector) => (
+                <button
+                  key={connector.uid}
+                  type="button"
+                  onClick={() => {
+                    connect({ connector, chainId: DEFAULT_CHAIN.id });
+                    setOpen(false);
+                  }}
+                  className="rounded-sm px-3 py-2 text-left text-xs text-foreground hover:bg-hover"
+                >
+                  {connector.name}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Connected to something we don't serve markets for. Offering the switch is
+  // more useful than silently showing empty balances.
+  const onSupportedChain = SUPPORTED_CHAINS.some((c) => c.id === chainId);
+  if (!onSupportedChain) {
     return (
       <button
         type="button"
-        onClick={() => setVisible(true)}
-        disabled={connecting}
-        className={BTN}
+        onClick={() => switchChain({ chainId: DEFAULT_CHAIN.id })}
+        className={`${BTN} border-warn/50 text-warn`}
       >
-        {connecting ? "Connecting…" : "Connect wallet"}
+        Switch to {DEFAULT_CHAIN.name}
       </button>
     );
   }
@@ -70,11 +118,11 @@ export function WalletButton() {
   return (
     <div className="flex items-center gap-2">
       <a
-        href={SOL_FAUCET_URL}
+        href={FAUCET_URL}
         target="_blank"
         rel="noreferrer"
         className={`${BTN} hidden leading-9 sm:inline-block`}
-        title="Open the Solana faucet to fund gas"
+        title={`Open the BNB Chain faucet to fund ${GAS_SYMBOL} gas`}
       >
         Fund
       </a>
@@ -94,21 +142,21 @@ export function WalletButton() {
           |
         </span>
         <span className="numeric text-muted" title="Used for gas only">
-          {sol === null ? "—" : sol.toFixed(3)}{" "}
-          <span className="text-faint">SOL</span>
+          {gas === null ? "—" : gas.toFixed(3)}{" "}
+          <span className="text-faint">{GAS_SYMBOL}</span>
         </span>
         <span aria-hidden className="text-rim">
           |
         </span>
-        {/* Fixed width: the truncated address is 9 monospace characters and
+        {/* Fixed width: the truncated address is 11 monospace characters and
             "Copied" is 6, so without this the button resizes on click and shoves
             its neighbours. Interaction states must not shift layout. */}
-        <span className="numeric inline-block min-w-[9ch] text-center text-foreground">
-          {copied ? "Copied" : truncate(publicKey.toBase58())}
+        <span className="numeric inline-block min-w-[11ch] text-center text-foreground">
+          {copied ? "Copied" : truncate(address)}
         </span>
       </button>
 
-      <button type="button" onClick={() => void disconnect()} className={BTN}>
+      <button type="button" onClick={() => disconnect()} className={BTN}>
         Disconnect
       </button>
     </div>

@@ -248,57 +248,6 @@ h3 {
   font-family: var(--font-display);
 }
 
-/* ---------------------------------------------------------------------------
-   Solana wallet-adapter modal — its stylesheet hardcodes a light panel with a
-   purple gradient and exposes no custom properties, so it is overridden by class.
---------------------------------------------------------------------------- */
-
-.wallet-adapter-modal-wrapper {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  color: var(--text);
-  font-family: var(--font-sans);
-}
-
-.wallet-adapter-modal-overlay {
-  background: rgb(25 21 19 / 0.6);
-}
-
-.wallet-adapter-modal-title {
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.wallet-adapter-modal-list li,
-.wallet-adapter-modal-list .wallet-adapter-button {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: none;
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 400;
-}
-
-.wallet-adapter-modal-list .wallet-adapter-button:not([disabled]):hover {
-  background: var(--raised);
-}
-
-.wallet-adapter-modal-list-more,
-.wallet-adapter-modal-button-close {
-  background: transparent;
-  color: var(--muted);
-}
-
-.wallet-adapter-modal-button-close:hover {
-  background: var(--raised);
-}
-
 /* Reduced motion: less movement, never less information. */
 @media (prefers-reduced-motion: reduce) {
   *,

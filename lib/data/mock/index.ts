@@ -11,12 +11,16 @@
  */
 
 import type {
+  Candle,
   Market,
   MarketPage,
   MarketQuery,
   MarketsClient,
+  PricePoint,
 } from "@/lib/data/clients";
 import { MOCK_MARKETS } from "@/lib/data/mock/markets";
+import { candlesFor } from "@/lib/data/mock/candles";
+import { priceHistoryFor } from "@/lib/data/mock/price-history";
 
 const DEFAULT_LIMIT = 60;
 
@@ -28,8 +32,8 @@ function compare(sort: MarketQuery["sort"], now: number) {
       // Soonest first, but markets whose close date has already passed sort last
       // rather than to the top — a stale end date shouldn't outrank live ones.
       return (a: Market, b: Market) => {
-        const ta = Date.parse(a.closesAt);
-        const tb = Date.parse(b.closesAt);
+        const ta = a.closesAt ? Date.parse(a.closesAt) : Number.POSITIVE_INFINITY;
+        const tb = b.closesAt ? Date.parse(b.closesAt) : Number.POSITIVE_INFINITY;
         const pa = ta < now ? 1 : 0;
         const pb = tb < now ? 1 : 0;
         return pa !== pb ? pa - pb : ta - tb;
@@ -70,11 +74,20 @@ export const mockMarketsClient: MarketsClient = {
       markets: sorted.slice(0, limit),
       totalMatching: matched.length,
       catalogueSize: MOCK_MARKETS.length,
+      categories: [...new Set(MOCK_MARKETS.map((m) => m.category))].sort(),
       isMockData: true,
     };
   },
 
   async getMarket(slug: string): Promise<Market | null> {
     return MOCK_MARKETS.find((market) => market.slug === slug) ?? null;
+  },
+
+  async getHistories(markets: Market[]): Promise<Map<string, PricePoint[]>> {
+    return new Map(markets.map((m) => [m.id, priceHistoryFor(m)]));
+  },
+
+  async getCandles(market: Market): Promise<Candle[]> {
+    return candlesFor(market);
   },
 };

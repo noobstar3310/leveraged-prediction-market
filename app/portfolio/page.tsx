@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { mockMarketsClient } from "@/lib/data/mock";
+import { getMarketsClient } from "@/lib/data";
 import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
 import { PositionsList } from "@/components/portfolio/positions-list";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
  * down. Passing 76 lightweight rows is cheaper than a round trip per position.
  */
 export default async function PortfolioPage() {
-  const { markets } = await mockMarketsClient.listMarkets({ limit: 500 });
+  const { markets } = await (await getMarketsClient()).listMarkets({ limit: 500 });
 
   return (
     <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6">

@@ -8,7 +8,9 @@ import { Toaster } from "sonner";
 
 import { SiteNav } from "@/components/nav/site-nav";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/ui/theme";
-import { SolanaProvider } from "@/components/wallet/wallet-provider";
+import { ChainProvider } from "@/components/wallet/wallet-provider";
+import { getNetwork } from "@/lib/data/network";
+import { isNetworkConfigured } from "@/lib/predict/config";
 import "./globals.css";
 
 /**
@@ -43,7 +45,11 @@ export const metadata: Metadata = {
   description: "Bet on outcomes with up to 20x leverage.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Read here rather than in the nav: the nav is a Client Component and the
+  // cookie (and the API-key check) must be resolved on the server.
+  const network = await getNetwork();
+
   return (
     <html
       lang="en"
@@ -58,10 +64,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
-          <SolanaProvider>
-            <SiteNav />
+          <ChainProvider>
+            <SiteNav
+              network={network}
+              mainnetConfigured={isNetworkConfigured("mainnet")}
+            />
             {children}
-          </SolanaProvider>
+          </ChainProvider>
           {/* Mounted once, at the root, and outside the providers: an ancestor
               with transform/filter/overflow creates a stacking context that can
               clip or bury toasts. */}

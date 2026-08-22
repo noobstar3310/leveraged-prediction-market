@@ -9,15 +9,8 @@
 
 import type { Market } from "@/lib/data/clients";
 
-export type Candle = {
-  /** `YYYY-MM-DD`, the format lightweight-charts accepts for daily bars. */
-  time: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-};
+export type { Candle } from "@/lib/data/clients";
+import type { Candle } from "@/lib/data/clients";
 
 /** Frozen "today" for the mock dataset. Keeps every series reproducible. */
 const AS_OF = Date.UTC(2026, 7, 17); // 2026-08-17

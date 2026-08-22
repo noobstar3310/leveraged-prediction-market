@@ -5,7 +5,12 @@ import { usePathname } from "next/navigation";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WalletButton } from "@/components/wallet/wallet-button";
-import { CLUSTER_LABEL, IS_MAINNET, SOLANA_CLUSTER } from "@/lib/solana/config";
+import { useAccount } from "wagmi";
+import { bsc } from "wagmi/chains";
+
+import { DEFAULT_CHAIN, chainLabel } from "@/lib/chain/config";
+import { NetworkSwitch } from "@/components/nav/network-switch";
+import type { PredictNetwork } from "@/lib/predict/config";
 
 const LINKS = [
   { href: "/", label: "Markets" },
@@ -29,8 +34,21 @@ function isActive(pathname: string, href: string): boolean {
  * the frequency gate disqualifies outright. The active route is a colour and
  * border change, applied instantly.
  */
-export function SiteNav() {
+export function SiteNav({
+  network,
+  mainnetConfigured,
+}: {
+  /** predict.fun data source — NOT the wallet's chain. They can differ. */
+  network: PredictNetwork;
+  mainnetConfigured: boolean;
+}) {
   const pathname = usePathname();
+  // The badge reports the chain the WALLET is on, falling back to the one we
+  // would connect to. Deriving it beats hardcoding: a badge reading "Testnet"
+  // while the wallet sits on mainnet is how someone loses real money.
+  const { chainId } = useAccount();
+  const shownChainId = chainId ?? DEFAULT_CHAIN.id;
+  const isMainnet = shownChainId === bsc.id;
 
   return (
     <header className="sticky top-0 z-20 border-b border-hairline bg-ground">
@@ -44,12 +62,12 @@ export function SiteNav() {
               real money. Mainnet is styled as a warning, not a label. */}
           <span
             className={`rounded-sm border px-1 text-[10px] tracking-wider uppercase ${
-              IS_MAINNET
+              isMainnet
                 ? "border-short bg-short/15 text-short"
                 : "border-warn/40 text-warn"
             }`}
           >
-            {CLUSTER_LABEL[SOLANA_CLUSTER]}
+            {chainLabel(shownChainId)}
           </span>
         </Link>
 
@@ -74,6 +92,10 @@ export function SiteNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <NetworkSwitch
+            current={network}
+            mainnetConfigured={mainnetConfigured}
+          />
           <ThemeToggle />
           <WalletButton />
         </div>

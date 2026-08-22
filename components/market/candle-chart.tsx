@@ -8,6 +8,7 @@ import {
   HistogramSeries,
   LineStyle,
   createChart,
+  type AutoscaleInfo,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
@@ -49,6 +50,17 @@ export function CandleChart({
   const liqLineRef = useRef<IPriceLine | null>(null);
   const entryLineRef = useRef<IPriceLine | null>(null);
   const colorsRef = useRef({ faint: "#78716c", warn: "#a16207" });
+  /**
+   * Current entry/liquidation, read by the autoscale provider below.
+   *
+   * A ref rather than state: it is consumed inside a chart callback, and
+   * re-rendering on every slider tick is exactly what the frequency gate
+   * forbids.
+   */
+  const linesRef = useRef<{ entry: number | null; liq: number | null }>({
+    entry: null,
+    liq: null,
+  });
   // Canvas colours are resolved once at build time, so the chart must be rebuilt
   // when the theme flips — otherwise it keeps painting the old palette.
   const { theme } = useTheme();
@@ -117,6 +129,34 @@ export function CandleChart({
       wickUpColor: long,
       wickDownColor: short,
       priceFormat: { type: "price", precision: 3, minMove: 0.001 },
+      /*
+       * Keep the liquidation line on screen, always.
+       *
+       * The default autoscale fits the candles only. Real market data is often
+       * near-flat — a series sitting between 0.238 and 0.264 pushed a
+       * liquidation at 0.20 clean off the chart, which is the one number this
+       * product exists to make visible. Extending the range to enclose the
+       * entry and liquidation lines costs some vertical resolution and is worth
+       * it every time.
+       */
+      autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
+        const base = original();
+        const extras = [linesRef.current.entry, linesRef.current.liq].filter(
+          (v): v is number => v != null && Number.isFinite(v),
+        );
+        if (extras.length === 0) return base;
+
+        const range = base?.priceRange ?? null;
+        const lows = [...extras, ...(range ? [range.minValue] : [])];
+        const highs = [...extras, ...(range ? [range.maxValue] : [])];
+        const minValue = Math.min(...lows);
+        const maxValue = Math.max(...highs);
+        // A hair of padding so a line never sits exactly on the frame edge.
+        const pad = (maxValue - minValue) * 0.08 || 0.01;
+        return {
+          priceRange: { minValue: minValue - pad, maxValue: maxValue + pad },
+        };
+      },
     });
     candleSeries.setData(candles);
     seriesRef.current = candleSeries;
@@ -184,6 +224,13 @@ export function CandleChart({
       });
     };
 
+    // Recorded before the lines are synced so the autoscale provider sees the
+    // new values when the scale recomputes.
+    linesRef.current = {
+      entry: entryPrice ?? null,
+      liq: liquidationPrice ?? null,
+    };
+
     sync(entryLineRef, entryPrice, {
       color: faint,
       title: "entry",
@@ -196,6 +243,10 @@ export function CandleChart({
       title: "liq.",
       lineWidth: 2,
     });
+
+    // Price lines do not themselves trigger an autoscale pass, so ask for one.
+    // Without this the range only catches up on the next unrelated redraw.
+    series.applyOptions({});
   }, [liquidationPrice, entryPrice, chartEpoch]);
 
   return (

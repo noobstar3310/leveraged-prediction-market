@@ -30,7 +30,7 @@ export default function DocsPage() {
         </h1>
         <p className="mt-4 max-w-[60ch] text-base leading-relaxed text-muted">
           Binary prediction markets with perpetual-style leverage, settled in
-          USDC. This describes how the on-chain program is intended to work — the
+          USDT. This describes how the on-chain contract is intended to work — the
           parts that are settled, and the parts that are still genuinely open.
         </p>
         <p className="mt-7 max-w-[68ch] rounded-md border border-warn px-4 py-3 text-sm text-foreground">
@@ -67,7 +67,7 @@ export default function DocsPage() {
             <P>
               Every market is a single yes/no question with a fixed close time. It
               mints two complementary share types. A share pays exactly{" "}
-              <strong className="font-medium text-foreground">1 USDC</strong> if
+              <strong className="font-medium text-foreground">1 USDT</strong> if
               its side resolves true and <strong>0</strong> if it doesn&apos;t, so
               the two prices always sum to one.
             </P>
@@ -99,7 +99,7 @@ export default function DocsPage() {
                 fields={["question_hash", "closes_at", "mark_price", "oracle", "state"]}
               >
                 The question, its close time, its resolution source, and the
-                current mark. One per market, PDA-derived from a question hash.
+                current mark. One per market, keyed by the condition id.
               </Account>
               <Account
                 name="Position"
@@ -111,9 +111,9 @@ export default function DocsPage() {
               </Account>
               <Account
                 name="Collateral vault"
-                fields={["mint (USDC)", "authority (PDA)", "total_collateral"]}
+                fields={["token (USDT)", "authority", "total_collateral"]}
               >
-                A single USDC token account per market holding all posted
+                A single USDT balance per market holding all posted
                 collateral. Withdrawals are only ever authorised by the program, on
                 close, liquidation or settlement.
               </Account>
@@ -124,11 +124,15 @@ export default function DocsPage() {
             </div>
             <P>
               <strong className="font-medium text-foreground">
-                USDC is the only settlement asset.
+                USDT is the only settlement asset.
               </strong>{" "}
               Collateral, position size, PnL and payouts are all denominated in it.
               BNB is used exclusively for transaction fees — it is never traded
-              and never posted as margin.
+              and never posted as margin. The settlement token is whatever the
+              venue accepts on the connected chain: USDT on BNB mainnet, TUSD on
+              BNB testnet. Both are 18 decimals, unlike the 6 USDC uses
+              elsewhere. Every screen reads the ticker from the chain rather
+              than hardcoding it.
             </P>
           </Section>
 
@@ -189,16 +193,16 @@ liquidation  (NO)  = entry + (1 − entry) ÷ L`}
             <Table
               head={["Position up to", "Max leverage", "Margin rate"]}
               rows={[
-                ["10,000 USDC", "20×", "5%"],
-                ["50,000 USDC", "10×", "10%"],
-                ["250,000 USDC", "5×", "20%"],
-                ["1,000,000 USDC", "2×", "50%"],
+                ["10,000 USDT", "20×", "5%"],
+                ["50,000 USDT", "10×", "10%"],
+                ["250,000 USDT", "5×", "20%"],
+                ["1,000,000 USDT", "2×", "50%"],
                 ["above", "1×", "100%"],
               ]}
               numericFrom={0}
             />
             <P>
-              A trader selecting 20× with 10,000 USDC of collateral is charged
+              A trader selecting 20× with 10,000 USDT of collateral is charged
               across three tiers and ends up at{" "}
               <strong className="font-medium text-foreground">
                 7.75× effective
@@ -424,7 +428,7 @@ const LIFECYCLE = [
   },
   {
     title: "Trade",
-    body: "A trader posts USDC collateral, selects a side and a leverage multiplier, and receives a position. The program computes the margin requirement from tiers and records the effective leverage, never the requested one.",
+    body: "A trader posts USDT collateral, selects a side and a leverage multiplier, and receives a position. The program computes the margin requirement from tiers and records the effective leverage, never the requested one.",
   },
   {
     title: "Mark",
@@ -440,13 +444,13 @@ const LIFECYCLE = [
   },
   {
     title: "Settle",
-    body: "Winning shares pay 1 USDC each; losing shares pay nothing. Traders claim from the vault. The market account is closed and its rent reclaimed once all positions are settled.",
+    body: "Winning shares pay 1 USDT each; losing shares pay nothing. Traders claim from the vault. The market is closed once all positions are settled.",
   },
 ] as const;
 
 const STATUS_ROWS: [string, string, string, string][] = [
   ["Binary shares paying 0 or 1", "decided", "Decided", "Multi-outcome deliberately excluded"],
-  ["USDC settlement, BNB for gas", "decided", "Decided", "BNB is never collateral"],
+  ["USDT settlement, BNB for gas", "decided", "Decided", "BNB is never collateral"],
   ["Margin, liquidation, payout maths", "decided", "Decided", "Implemented and tested off-chain"],
   ["Tiered margin, 20× ceiling", "decided", "Decided", "Verified against a live venue's published tiers"],
   ["Maintenance margin buffer", "none", "Not built", "Liquidation currently equals bankruptcy price"],

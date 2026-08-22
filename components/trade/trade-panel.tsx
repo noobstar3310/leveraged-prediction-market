@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useAccount, useConnect } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
+import { useAccount } from "wagmi";
 import { Check } from "lucide-react";
 
 import type { Market } from "@/lib/data/clients";
@@ -19,8 +20,6 @@ import type { MarginRequirement } from "@/lib/leverage/tiers";
 import { openPosition } from "@/lib/positions/store";
 import { notifyOrderPlaced } from "@/components/ui/toast";
 import { useBalances } from "@/components/wallet/balances-provider";
-import { USDC_FAUCET_URL, USDC_SYMBOL } from "@/lib/wallet/usdc";
-import { DEFAULT_CHAIN, GAS_SYMBOL } from "@/lib/chain/config";
 import { formatPrice } from "@/lib/format";
 
 const PRESET_MARGINS = [25, 100, 500, 1000];
@@ -75,8 +74,8 @@ export function TradePanel({
 }: Props) {
   const router = useRouter();
   const { isConnected: connected } = useAccount();
-  const { connectors, connect } = useConnect();
-  const { usdc } = useBalances();
+  const { login } = usePrivy();
+  const { collateral, collateralSymbol, gasSymbol } = useBalances();
 
   const effectiveLeverage = requirement.effectiveLeverage;
   const tiered = requirement.slices.length > 1;
@@ -87,7 +86,7 @@ export function TradePanel({
   const entryCost = side === "yes" ? market.yesPrice : market.noPrice;
   const sizeValid = margin > 0 && Number.isFinite(margin);
   // Real balance, so a real gate: you cannot post collateral you don't hold.
-  const funded = usdc !== null && usdc >= margin;
+  const funded = collateral !== null && collateral >= margin;
   const valid = sizeValid && connected && funded;
 
   function confirm() {
@@ -120,7 +119,7 @@ export function TradePanel({
 
       <div>
         <label htmlFor="margin" className="mb-1.5 block text-[11px] text-faint">
-          Collateral (USDC)
+          Collateral ({collateralSymbol})
         </label>
         <input
           id="margin"
@@ -233,7 +232,7 @@ export function TradePanel({
       <dl className="flex items-baseline justify-between border-t border-hairline pt-3 text-xs">
         <dt className="text-faint">Available to trade</dt>
         <dd className="numeric text-foreground">
-          {usdc === null ? "—" : usdc.toFixed(2)} {USDC_SYMBOL}
+          {collateral === null ? "—" : collateral.toFixed(2)} {collateralSymbol}
         </dd>
       </dl>
 
@@ -253,13 +252,9 @@ export function TradePanel({
       {!connected ? (
         <button
           type="button"
-          onClick={() => {
-            // First discovered wallet. EIP-6963 announces each installed wallet
-            // separately, so this is a real choice rather than a guess at
-            // window.ethereum — and the nav button offers the full list.
-            const connector = connectors[0];
-            if (connector) connect({ connector, chainId: DEFAULT_CHAIN.id });
-          }}
+          // Opens Privy's modal — the same one the nav button uses, so a
+          // trader is never offered two different ways to connect.
+          onClick={() => login()}
           className="control h-10 w-full text-sm font-medium"
         >
           Connect wallet to trade
@@ -274,7 +269,7 @@ export function TradePanel({
           {!sizeValid
             ? "Enter a size"
             : !funded
-              ? `Insufficient ${USDC_SYMBOL}`
+              ? `Insufficient ${collateralSymbol}`
               : `Open ${side.toUpperCase()} · ${leverage}×`}
         </button>
       )}
@@ -286,17 +281,15 @@ export function TradePanel({
           <span>
             Need <span className="numeric">{usd(margin)}</span>, have{" "}
             <span className="numeric">
-              {usdc === null ? "—" : usd(usdc)}
+              {collateral === null ? "—" : usd(collateral)}
             </span>
           </span>
           <a
-            href={USDC_FAUCET_URL}
-            target="_blank"
-            rel="noreferrer"
+            href="/faucet"
             className="underline underline-offset-2"
-            title={`The BNB faucet issues gas, not ${USDC_SYMBOL}`}
+            title={`Mint testnet ${collateralSymbol} with your connected wallet`}
           >
-            Get {USDC_SYMBOL} →
+            Get {collateralSymbol} →
           </a>
         </p>
       )}
@@ -317,7 +310,7 @@ export function TradePanel({
         </summary>
         <p className="mt-2 text-[10px] leading-relaxed text-faint">
           No order is routed and no money moves. Collateral, size and payouts are
-          in {USDC_SYMBOL}; {GAS_SYMBOL} pays network fees only. Trading fees, funding and
+          in {collateralSymbol}; {gasSymbol} pays network fees only. Trading fees, funding and
           maintenance margin are not modelled, so the liquidation price above is
           the optimistic bound — a real venue would close the position sooner.
         </p>

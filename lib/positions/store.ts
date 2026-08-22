@@ -21,7 +21,7 @@ export type StoredPosition = {
   marketSlug: string;
   marketQuestion: string;
   side: Side;
-  /** Collateral posted, in USDC. */
+  /** Collateral posted, in the settlement token (USDT / TUSD). */
   margin: number;
   /**
    * EFFECTIVE leverage — notional ÷ margin after tiered margin is applied. This

@@ -25,14 +25,90 @@ the odds move against them before resolution.
 - **Positions** — opened from the trade panel into `localStorage`
   ([lib/positions/store.ts](lib/positions/store.ts)), valued live on
   [app/portfolio/page.tsx](app/portfolio/page.tsx) with PnL, liquidation and health.
-- **Nav + wallet** — real EVM connection via wagmi, connectors discovered through EIP-6963
-  (MetaMask, Trust, Rabby, Binance Wallet — no per-wallet adapter list). The network badge is
-  derived from the chain the wallet reports, never hardcoded. USDC is the settlement asset
-  (real BEP-20 balance, chain-aware address); BNB is gas only. Opening a position is gated on
-  holding enough USDC.
+- **Nav + wallet** — **Privy** owns connection and auth; wagmi still does all chain reads.
+  Privy covers injected wallets, WalletConnect, email and social login, and mints an embedded
+  wallet for users arriving without one. The network badge is derived from the chain the wallet
+  reports, never hardcoded. **The settlement asset is chain-dependent** — USDT on BNB mainnet,
+  TUSD on BNB testnet — because those are the tokens predict.fun's exchange actually accepts as
+  collateral. BNB is gas only. Opening a position is gated on holding enough collateral.
 
-  **USDC is 18 decimals on BNB Chain**, not the 6 it uses on Ethereum and Solana. Both token
-  addresses in [lib/wallet/usdc.ts](lib/wallet/usdc.ts) were verified on-chain.
+  **Never hardcode the collateral ticker.** It differs by chain, so `useBalances()` returns
+  `collateralSymbol` alongside the amount and every screen renders that. Both tokens are 18
+  decimals, unlike the 6 USDC uses on Ethereum and Solana. Addresses, symbols and decimals in
+  [lib/wallet/collateral.ts](lib/wallet/collateral.ts) were each read back on-chain — the SDK
+  labels the testnet slot "USDT" but the contract reports TUSD, and the contract wins.
+
+  We previously read a USDC contract here. It was wrong: predict.fun would never settle in it,
+  so the trade panel gated on a balance the venue does not accept.
+
+- **Faucet** — [app/faucet/page.tsx](app/faucet/page.tsx). Testnet only, and the nav link is
+  hidden on mainnet. Two steps, because they are genuinely different problems: gas cannot be
+  minted (link out to the BNB faucet), while the testnet collateral token exposes a
+  permissionless `allocateTo(address,uint256)` that we call directly with the connected wallet
+  for 1,000 tokens. Verified: an unrelated caller gas-estimates at ~34k, so it is not
+  owner-gated. Mainnet USDT has no such function, which is why `faucetFor()` is keyed by chain.
+
+  **This is the app's only write transaction.** Everything else is read-only. If you add
+  more, follow the same shape — `useWriteContract` + `useWaitForTransactionReceipt`, with
+  distinct copy for signing / confirming / failed, and refetch balances in an effect keyed on
+  the tx hash (never in render).
+
+### Privy — rules that are not optional
+
+- **Import `createConfig` and `WagmiProvider` from `@privy-io/wagmi`, never from `wagmi`.**
+  The wagmi ones compile fine and then silently leave wagmi unaware of whichever wallet Privy
+  connected. Provider order is fixed: `PrivyProvider > QueryClientProvider > WagmiProvider`.
+- **No `connectors` in the wagmi config.** Privy owns connection; listing connectors makes the
+  two fight over the active account.
+- **Privy mounts client-side only.** PrivyProvider *throws* on a bad App ID, and during SSR that
+  throw is unrecoverable — Next reports it as a `client_error` and turns every route into a 500,
+  markets and docs included. An error boundary does not help there; verified. The provider is
+  deferred past hydration (`useSyncExternalStore`, not `setState` in an effect — React 19's
+  `set-state-in-effect` rule), and a boundary catches the same failure on the client where it
+  IS recoverable.
+- **The wallet must never take down read-only surfaces.** Markets, charts, docs and the
+  portfolio all work signed out. `components/wallet/availability.tsx` distinguishes
+  `unconfigured` (no App ID) from `failed` (App ID rejected) so the nav says which.
+- **Two `ox` majors coexist on purpose, and the layout is load-bearing.**
+  `permissionless` (the ERC-4337 library behind smart wallets) imports bare `ox` in its Kernel
+  and Safe account paths and needs `^0.8`; viem 2.55 imports `ox/erc8010`, which only exists in
+  `0.14`. The working arrangement is: **`ox@0.8.9` as a direct root dependency** (what
+  permissionless resolves) plus **`overrides.viem.ox = "0.14.33"`** (viem keeps its own nested
+  copy). Collapsing these to one version breaks whichever package loses — a single hoisted
+  `0.8.9` fails the build with `Can't resolve 'ox/erc8010'`. `viem` is also pinned to the exact
+  version `@privy-io/wagmi` requires.
+
+- **`target` in tsconfig is `ES2020`, not Next's default `ES2017`** — viem's API is bigint-native
+  and BigInt literals need ES2020. If a stale `tsconfig.tsbuildinfo` makes tsc disagree with the
+  file, delete it.
+- `NEXT_PUBLIC_PRIVY_APP_ID` is public by design (it identifies the app, authorises nothing) —
+  unlike `PREDICT_API_KEY`, which must stay server-side.
+
+### Smart wallets & gas sponsorship
+
+Embedded-wallet users get an ERC-4337 smart account with sponsored gas, so they can be funded
+and trade without ever holding BNB. External wallets (MetaMask etc.) are unaffected and still
+pay their own gas.
+
+**Privy's NATIVE sponsorship does not cover BNB testnet (97)** — only mainnet (56). Testnet
+therefore goes through smart wallets with our own bundler/paymaster.
+
+- `SmartWalletsProvider` sits directly under `PrivyProvider`;
+  [components/wallet/smart-wallet.tsx](components/wallet/smart-wallet.tsx) bridges its state
+  into our own context so components outside the Privy tree (App ID missing or rejected) get an
+  empty state instead of a thrown hook.
+- **The smart account address is NOT the embedded EOA.** The EOA only signs; the smart account
+  holds funds. `useBalances().address` returns the effective account and everything that
+  receives or spends tokens must use it — funding one address and trading from another is the
+  obvious failure here.
+- The faucet prefers `sendSponsored` when a smart account exists and falls back to
+  `useWriteContract` (user pays) otherwise, so both wallet types work from one button.
+
+**Dashboard configuration is required and lives outside this repo.** In the Privy dashboard:
+enable smart wallets, pick an account implementation (Kernel/Safe/Biconomy/Alchemy/Thirdweb/
+Coinbase), then add chain 97 with a bundler URL, paymaster URL and RPC URL — none of those can
+be defaulted for a custom chain. Pimlico supports 97 as `binance-testnet`. Without a paymaster
+configured the code still works; the smart account just pays its own gas.
 - **Theming** — light and dark, switchable from the nav, persisted to `localStorage` with an
   inline pre-paint script so there is no flash. Both palettes contrast-verified.
 

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 import {
   DEFAULT_NETWORK,
+  isNetworkConfigured,
   parseNetwork,
   type PredictNetwork,
 } from "@/lib/predict/config";
@@ -20,5 +21,20 @@ export const NETWORK_COOKIE = "predict-network";
 
 export async function getNetwork(): Promise<PredictNetwork> {
   const store = await cookies();
-  return parseNetwork(store.get(NETWORK_COOKIE)?.value) ?? DEFAULT_NETWORK;
+  const chosen = parseNetwork(store.get(NETWORK_COOKIE)?.value);
+
+  /*
+   * Fall back rather than dead-end.
+   *
+   * A fresh visitor has no cookie and lands on testnet already. But a returning
+   * one who switched to mainnet keeps that cookie for a year — and with no
+   * PREDICT_API_KEY every mainnet route 401s, so they would land on an error
+   * page with no markets and no obvious way back. Serving testnet instead means
+   * the site always opens on markets that actually load.
+   *
+   * The toggle still shows mainnet as selectable; this only governs what gets
+   * FETCHED when the selected network cannot answer.
+   */
+  if (!isNetworkConfigured(chosen)) return DEFAULT_NETWORK;
+  return chosen;
 }

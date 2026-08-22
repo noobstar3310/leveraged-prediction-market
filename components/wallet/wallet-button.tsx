@@ -1,16 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import Link from "next/link";
+import { usePrivy } from "@privy-io/react-auth";
+import { useAccount, useSwitchChain } from "wagmi";
 
 import { useBalances } from "@/components/wallet/balances-provider";
-import { USDC_SYMBOL } from "@/lib/wallet/usdc";
 import {
   DEFAULT_CHAIN,
   FAUCET_URL,
-  GAS_SYMBOL,
   SUPPORTED_CHAINS,
 } from "@/lib/chain/config";
+import { faucetFor } from "@/lib/wallet/collateral";
+import { useWalletAvailability } from "@/components/wallet/availability";
 
 const BTN = "control h-9 px-3 text-xs";
 
@@ -19,25 +21,34 @@ function truncate(address: string): string {
 }
 
 /**
- * Wallet connect / status.
+ * Wallet connect / status, backed by Privy.
  *
- * Shows BOTH balances because they do different jobs: USDC is what you trade
- * with — collateral, position size, PnL and payouts are all denominated in it —
- * and BNB only ever pays transaction fees.
+ * Privy owns the connection modal, so there is no hand-rolled connector list
+ * here any more — it covers injected wallets, WalletConnect, email and social
+ * login, and mints an embedded wallet for users who arrive without one.
  *
- * Connectors come from EIP-6963 discovery, so each installed wallet announces
- * itself and we render one button per wallet. No stock modal is used: the
- * adapter-style modals ship their own stylesheets, which the design system
- * forbids.
+ * Balances still come from wagmi: Privy changes how a wallet connects, not how
+ * the chain is read. Both balances are shown because they do different jobs —
+ * the collateral token is what you trade with, BNB only ever pays fees. The
+ * collateral ticker comes from the chain (USDT / TUSD), never hardcoded.
  */
 export function WalletButton() {
-  const { address, isConnected, chainId } = useAccount();
-  const { connectors, connect, isPending } = useConnect();
-  const { disconnect } = useDisconnect();
+  const availability = useWalletAvailability();
+  const { ready, authenticated, login, logout } = usePrivy();
+  const { chainId } = useAccount();
   const { switchChain } = useSwitchChain();
-  const { usdc, gas } = useBalances();
+  const {
+    // The effective account: smart wallet when there is one, EOA otherwise.
+    // Showing the EOA here while balances read the smart account would have the
+    // user copy an address their funds are not at.
+    address,
+    isSmartAccount,
+    collateral,
+    collateralSymbol,
+    gas,
+    gasSymbol,
+  } = useBalances();
 
-  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,90 +71,108 @@ export function WalletButton() {
     }
   }, [address]);
 
-  if (!isConnected || !address) {
+  // Says what is wrong instead of rendering a button that cannot work — and
+  // distinguishes "no App ID set" from "the App ID present is rejected".
+  if (availability !== "ready") {
     return (
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          disabled={isPending}
-          aria-expanded={open}
-          className={BTN}
-        >
-          {isPending ? "Connecting…" : "Connect wallet"}
-        </button>
-
-        {open && (
-          <div className="panel absolute top-full right-0 z-30 mt-1 flex w-56 flex-col p-1">
-            {connectors.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-muted">
-                No browser wallet detected. Install MetaMask, Trust or Rabby.
-              </p>
-            ) : (
-              connectors.map((connector) => (
-                <button
-                  key={connector.uid}
-                  type="button"
-                  onClick={() => {
-                    connect({ connector, chainId: DEFAULT_CHAIN.id });
-                    setOpen(false);
-                  }}
-                  className="rounded-sm px-3 py-2 text-left text-xs text-foreground hover:bg-hover"
-                >
-                  {connector.name}
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
+      <span
+        className="rounded-sm border border-warn/40 px-2.5 py-1.5 text-[11px] text-warn"
+        title={
+          availability === "unconfigured"
+            ? "Set NEXT_PUBLIC_PRIVY_APP_ID in .env.local — get one at dashboard.privy.io"
+            : "Privy rejected this App ID. Check NEXT_PUBLIC_PRIVY_APP_ID against dashboard.privy.io."
+        }
+      >
+        {availability === "unconfigured"
+          ? "Wallet not configured"
+          : "Wallet unavailable"}
+      </span>
     );
   }
 
-  // Connected to something we don't serve markets for. Offering the switch is
-  // more useful than silently showing empty balances.
+  // Privy resolves its session asynchronously. Rendering "Connect wallet" while
+  // that is in flight makes an already-signed-in user look signed out, so the
+  // button holds a fixed-width placeholder instead of flickering.
+  if (!ready) {
+    return (
+      <span className={`${BTN} inline-block leading-9 text-faint`} aria-busy>
+        Loading…
+      </span>
+    );
+  }
+
+  // A smart account is connected even when wagmi reports no EOA session, so
+  // `address` — not `isConnected` — is what decides the connected state.
+  if (!authenticated || !address) {
+    return (
+      <button type="button" onClick={() => login()} className={BTN}>
+        Connect wallet
+      </button>
+    );
+  }
+
+  // Connected to a chain we serve no markets for. Offering the switch beats
+  // silently showing empty balances.
   const onSupportedChain = SUPPORTED_CHAINS.some((c) => c.id === chainId);
   if (!onSupportedChain) {
     return (
-      <button
-        type="button"
-        onClick={() => switchChain({ chainId: DEFAULT_CHAIN.id })}
-        className={`${BTN} border-warn/50 text-warn`}
-      >
-        Switch to {DEFAULT_CHAIN.name}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => switchChain({ chainId: DEFAULT_CHAIN.id })}
+          className={`${BTN} border-warn/50 text-warn`}
+        >
+          Switch to {DEFAULT_CHAIN.name}
+        </button>
+        <button type="button" onClick={() => void logout()} className={BTN}>
+          Disconnect
+        </button>
+      </div>
     );
   }
 
   return (
     <div className="flex items-center gap-2">
-      <a
-        href={FAUCET_URL}
-        target="_blank"
-        rel="noreferrer"
-        className={`${BTN} hidden leading-9 sm:inline-block`}
-        title={`Open the BNB Chain faucet to fund ${GAS_SYMBOL} gas`}
-      >
-        Fund
-      </a>
+      {/* On testnet this goes to our own page, which can actually mint the
+          collateral token. On mainnet there is nothing to mint, so it stays a
+          link out to the bridge. */}
+      {faucetFor(chainId) ? (
+        <Link href="/faucet" className={`${BTN} hidden leading-9 sm:inline-block`}>
+          Fund
+        </Link>
+      ) : (
+        <a
+          href={FAUCET_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={`${BTN} hidden leading-9 sm:inline-block`}
+          title="Bridge or buy the settlement token"
+        >
+          Fund
+        </a>
+      )}
 
       <button
         type="button"
         onClick={() => void copyAddress()}
         className="control flex h-9 items-center gap-2.5 px-3 text-xs"
-        title="Copy address to clipboard"
+        title={
+          isSmartAccount
+            ? "Smart account — gas sponsored. Click to copy."
+            : "Copy address to clipboard"
+        }
       >
         {/* Trading balance leads; gas is secondary. */}
         <span className="numeric text-foreground">
-          {usdc === null ? "—" : usdc.toFixed(2)}{" "}
-          <span className="text-faint">{USDC_SYMBOL}</span>
+          {collateral === null ? "—" : collateral.toFixed(2)}{" "}
+          <span className="text-faint">{collateralSymbol}</span>
         </span>
         <span aria-hidden className="text-rim">
           |
         </span>
         <span className="numeric text-muted" title="Used for gas only">
           {gas === null ? "—" : gas.toFixed(3)}{" "}
-          <span className="text-faint">{GAS_SYMBOL}</span>
+          <span className="text-faint">{gasSymbol}</span>
         </span>
         <span aria-hidden className="text-rim">
           |
@@ -156,7 +185,7 @@ export function WalletButton() {
         </span>
       </button>
 
-      <button type="button" onClick={() => disconnect()} className={BTN}>
+      <button type="button" onClick={() => void logout()} className={BTN}>
         Disconnect
       </button>
     </div>

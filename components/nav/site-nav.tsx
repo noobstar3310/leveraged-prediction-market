@@ -18,6 +18,12 @@ const LINKS = [
   { href: "/docs", label: "Docs" },
 ] as const;
 
+/**
+ * Faucet is testnet-only, so it is a separate entry rather than part of LINKS —
+ * on mainnet the collateral is real USDT and there is nothing to hand out.
+ */
+const FAUCET_LINK = { href: "/faucet", label: "Faucet" } as const;
+
 function isActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
@@ -72,7 +78,7 @@ export function SiteNav({
         </Link>
 
         <nav aria-label="Primary" className="flex items-center gap-1">
-          {LINKS.map((link) => {
+          {[...LINKS, ...(isMainnet ? [] : [FAUCET_LINK])].map((link) => {
             const active = isActive(pathname, link.href);
             return (
               <Link

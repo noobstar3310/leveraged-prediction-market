@@ -40,7 +40,7 @@ export type Outcome = "yes" | "no";
 
 export type Position = {
   side: Side;
-  /** Collateral posted, in USDC. Must be > 0. */
+  /** Collateral posted, in the settlement token. Must be > 0. */
   margin: number;
   /** 1..MAX_LEVERAGE. */
   leverage: number;
@@ -102,7 +102,7 @@ export function liquidationPrice(position: Position): number {
   return clamp(p0 + (1 - p0) / leverage, 0, 1);
 }
 
-/** Mark-to-market profit or loss, in USDC. Negative is a loss. */
+/** Mark-to-market profit or loss, in the settlement token. Negative is a loss. */
 export function unrealizedPnl(position: Position, markPrice: number): number {
   const entryCost = costPerShare(position.side, position.entryPrice);
   const markCost = costPerShare(position.side, markPrice);
@@ -122,7 +122,7 @@ export function healthFactor(position: Position, markPrice: number): number {
 }
 
 /**
- * USDC returned if the market resolves to `outcome`.
+ * Settlement tokens returned if the market resolves to `outcome`.
  *
  * A winning share pays 1. The trader keeps the share value less the borrowed
  * portion of the notional, so a losing outcome returns 0 — the margin is gone.

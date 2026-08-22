@@ -80,7 +80,7 @@ export const ROBINHOOD_BTC_TIERS: MarginTier[] = [
 ];
 
 /**
- * This product's tiers, in USDC.
+ * This product's tiers, denominated in the settlement token.
  *
  * Scaled far below Robinhood's because these are prediction markets: a busy one
  * here turns over ~$1M in 24h, so a $250k position is already a large fraction

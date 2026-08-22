@@ -10,8 +10,6 @@ import {
 } from "@/lib/leverage";
 import { usePositions } from "@/lib/positions/store";
 import { useBalances } from "@/components/wallet/balances-provider";
-import { GAS_SYMBOL } from "@/lib/chain/config";
-import { USDC_SYMBOL } from "@/lib/wallet/usdc";
 import { formatPrice } from "@/lib/format";
 
 function usd(value: number): string {
@@ -36,7 +34,7 @@ function usd(value: number): string {
  */
 export function PortfolioSummary({ markets }: { markets: Market[] }) {
   const stored = usePositions();
-  const { usdc, gas } = useBalances();
+  const { collateral, collateralSymbol, gas, gasSymbol } = useBalances();
 
   const priceFor = (marketId: string) =>
     markets.find((m) => m.id === marketId)?.yesPrice ?? null;
@@ -86,14 +84,14 @@ export function PortfolioSummary({ markets }: { markets: Market[] }) {
         </h2>
         <Figure
           label={`Available to trade`}
-          value={usdc === null ? "—" : `${usd(usdc)}`}
-          hint={USDC_SYMBOL}
+          value={collateral === null ? "—" : `${usd(collateral)}`}
+          hint={collateralSymbol}
           large
         />
         <div className="border-t border-hairline pt-3">
           <Row
             label="Gas balance"
-            value={gas === null ? "—" : `${gas.toFixed(3)} ${GAS_SYMBOL}`}
+            value={gas === null ? "—" : `${gas.toFixed(3)} ${gasSymbol}`}
           />
         </div>
       </section>

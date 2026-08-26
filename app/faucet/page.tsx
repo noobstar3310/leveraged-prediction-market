@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { FaucetPanel } from "@/components/wallet/faucet-panel";
 import { WalletDiagnostics } from "@/components/wallet/wallet-diagnostics";
 import { GAS_SYMBOL } from "@/lib/chain/config";
+import { IS_GAS_FAUCET_CONFIGURED } from "@/lib/wallet/gas-faucet";
 
 export const metadata: Metadata = {
   title: "Fund wallet · Leveraged",
@@ -33,7 +34,9 @@ export default function FaucetPage() {
         </p>
       </header>
 
-      <FaucetPanel />
+      {/* Resolved on the server: whether the drip key exists must never be
+          inferred client-side, and the key itself never leaves this process. */}
+      <FaucetPanel gasFaucetConfigured={IS_GAS_FAUCET_CONFIGURED} />
 
       <WalletDiagnostics />
 

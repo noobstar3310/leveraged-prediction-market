@@ -48,10 +48,27 @@ the odds move against them before resolution.
   for 1,000 tokens. Verified: an unrelated caller gas-estimates at ~34k, so it is not
   owner-gated. Mainnet USDT has no such function, which is why `faucetFor()` is keyed by chain.
 
-  **This is the app's only write transaction.** Everything else is read-only. If you add
-  more, follow the same shape — `useWriteContract` + `useWaitForTransactionReceipt`, with
-  distinct copy for signing / confirming / failed, and refetch balances in an effect keyed on
-  the tx hash (never in render).
+  **This is the app's only wallet-signed write.** If you add more, follow the same shape —
+  `useWriteContract` + `useWaitForTransactionReceipt`, distinct copy for signing / confirming /
+  failed, and refetch balances in an effect keyed on the tx hash (never in render).
+
+  Step 1 of that page is a **server-side BNB drip**: `POST /api/faucet/gas` sends a fixed
+  0.01 BNB from a wallet we fund. It exists because the official BNB faucet requires holding
+  mainnet BNB — precisely what a new embedded-wallet user does not have.
+
+  **`FAUCET_PRIVATE_KEY` is a real secret.** It is not `NEXT_PUBLIC_`, and
+  [lib/wallet/gas-faucet.ts](lib/wallet/gas-faucet.ts) imports `server-only` so an accidental
+  client import fails the build instead of shipping a key. Verified by building with a known
+  dummy key and grepping every client chunk for it: absent. Three rules hold that line —
+  the amount is fixed server-side and never read from the request, the chain is pinned to
+  testnet, and each address gets a **48-hour cooldown** recorded only AFTER a successful send,
+  so a failure cannot burn someone's quota. The cooldown map lives on `globalThis` for the same
+  reason as the catalogue cache: route handlers are bundled separately and a module-level Map
+  would give each bundle its own, halving the real cooldown.
+
+  **The cooldown is in-memory and does not survive a restart.** At 48 hours that is a real gap
+  — every `npm run dev` clears it — so it deters casual repeats, not a determined caller. If
+  the faucet is ever exposed publicly it needs a persistent store keyed by address.
 
 ### Privy — rules that are not optional
 

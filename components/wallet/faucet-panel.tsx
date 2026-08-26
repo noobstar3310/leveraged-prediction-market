@@ -17,6 +17,8 @@ import { useWalletAvailability } from "@/components/wallet/availability";
 import {
   FAUCET_ABI,
   FAUCET_AMOUNT,
+  GAS_DRIP_BNB,
+  GAS_DRIP_COOLDOWN_HOURS,
   GAS_FAUCET_URL,
   faucetFor,
 } from "@/lib/wallet/collateral";
@@ -38,20 +40,53 @@ const BTN = "control h-9 px-4 text-xs";
  * spinner: a user who has just been asked to sign needs to know whether the
  * wallet is waiting, the chain is waiting, or it failed.
  */
-export function FaucetPanel() {
+export function FaucetPanel({
+  gasFaucetConfigured,
+}: {
+  /** Whether the server holds a funded key. Resolved server-side. */
+  gasFaucetConfigured: boolean;
+}) {
   const availability = useWalletAvailability();
   const { authenticated, login } = usePrivy();
   const { chainId, isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
   const {
     address,
-    isSmartAccount,
     collateral,
     collateralSymbol,
     gas,
     refresh,
   } = useBalances();
   const { sendSponsored } = useSmartWallet();
+
+  // The BNB drip is a server call, not a wallet action — its own state.
+  const [dripping, setDripping] = useState(false);
+  const [dripHash, setDripHash] = useState<string>();
+  const [dripError, setDripError] = useState<string>();
+
+  const requestGas = async () => {
+    if (!address) return;
+    setDripping(true);
+    setDripError(undefined);
+    setDripHash(undefined);
+    try {
+      const res = await fetch("/api/faucet/gas", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ to: address }),
+      });
+      const body = (await res.json()) as { hash?: string; error?: string };
+      if (!res.ok || !body.hash) throw new Error(body.error ?? "Request failed.");
+      setDripHash(body.hash);
+      // The balance only moves once the transfer lands; a short delay beats
+      // showing the user a stale zero right after a success message.
+      setTimeout(refresh, 3000);
+    } catch (e) {
+      setDripError((e as Error).message);
+    } finally {
+      setDripping(false);
+    }
+  };
 
   // Sponsored sends bypass wagmi entirely, so they need their own state.
   const [sponsoredHash, setSponsoredHash] = useState<`0x${string}`>();
@@ -139,36 +174,78 @@ export function FaucetPanel() {
     <div className="flex flex-col gap-4">
       <Step
         n={1}
-        title={
-          isSmartAccount
-            ? `${GAS_SYMBOL} for gas — not needed`
-            : `Get ${GAS_SYMBOL} for gas`
-        }
-        done={isSmartAccount || (gas !== null && gas > 0)}
+        title={`Get ${GAS_SYMBOL} for gas`}
+        done={gas !== null && gas > 0}
         body={
           <>
             <p className="text-xs leading-relaxed text-muted">
-              {isSmartAccount
-                ? `Your smart account's gas is sponsored, so you can skip this
-                   entirely. The link is here only if you want to fund it
-                   yourself.`
-                : `Every transaction costs ${GAS_SYMBOL}, and it cannot be
-                   minted — it comes from the official faucet. You need this
-                   before step 2 will go through.`}
+              Every transaction costs {GAS_SYMBOL}. The official faucet requires
+              you to already hold mainnet BNB, which a new wallet does not — so
+              this sends you some directly instead. One request per address
+              every {GAS_DRIP_COOLDOWN_HOURS} hours.
             </p>
-            <div className="mt-3 flex items-center gap-3">
-              <a
-                href={GAS_FAUCET_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={`${BTN} inline-block leading-9`}
-              >
-                Open {GAS_SYMBOL} faucet ↗
-              </a>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {!address ? (
+                <span className="text-xs text-faint">
+                  Connect a wallet first.
+                </span>
+              ) : !gasFaucetConfigured ? (
+                <span className="text-xs text-warn">
+                  Not configured — set FAUCET_PRIVATE_KEY in .env.local.
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void requestGas()}
+                  disabled={dripping}
+                  className={BTN}
+                >
+                  {dripping
+                    ? "Sending…"
+                    : `Fund ${GAS_SYMBOL} — ${GAS_DRIP_BNB} ${GAS_SYMBOL}`}
+                </button>
+              )}
+
               <span className="numeric text-xs text-faint">
                 balance {gas === null ? "—" : `${gas.toFixed(4)} ${GAS_SYMBOL}`}
               </span>
             </div>
+
+            {dripHash && (
+              <p className="numeric mt-3 text-[11px] break-all text-faint">
+                Sent:{" "}
+                <a
+                  href={`${bscTestnet.blockExplorers.default.url}/tx/${dripHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  {dripHash.slice(0, 10)}…{dripHash.slice(-8)} ↗
+                </a>
+              </p>
+            )}
+
+            {dripError && (
+              <p className="mt-3 text-[11px] leading-relaxed text-short">
+                {dripError}
+              </p>
+            )}
+
+            {/* Kept as a fallback: if our drip wallet runs dry, the official
+                faucet is still the way out. */}
+            <p className="mt-3 text-[10px] text-faint">
+              Or use the{" "}
+              <a
+                href={GAS_FAUCET_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-muted"
+              >
+                official BNB faucet ↗
+              </a>
+              .
+            </p>
           </>
         }
       />

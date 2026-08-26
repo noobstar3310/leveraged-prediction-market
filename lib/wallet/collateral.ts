@@ -114,3 +114,16 @@ export const FAUCET_AMOUNT = 1000;
 
 /** Gas cannot be minted — it still comes from the official faucet. */
 export const GAS_FAUCET_URL = "https://www.bnbchain.org/en/testnet-faucet";
+
+/**
+ * Client-safe copy of the drip amount.
+ *
+ * The server module that actually sends it imports `server-only`, so a client
+ * component cannot read the value from there without failing the build. This
+ * is display text; the amount the server sends is decided server-side and is
+ * never taken from the client.
+ */
+export const GAS_DRIP_BNB = "0.01";
+
+/** Client-safe copy of the drip cooldown, for UI copy only. Enforced server-side. */
+export const GAS_DRIP_COOLDOWN_HOURS = 48;

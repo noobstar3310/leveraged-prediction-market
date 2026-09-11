@@ -23,6 +23,19 @@ export type MarketCategory = string;
 export type Market = {
   /** Our stable identifier for this market. */
   id: string;
+  /**
+   * What the two sides are actually called on this market.
+   *
+   * Optional, defaulting to Yes/No — most markets are phrased that way, but
+   * predict.fun also runs Up/Down crypto markets and sports variants. Labelling
+   * an "Up" outcome as "Yes" would misstate what is being bought, so the UI
+   * reads this rather than hardcoding.
+   *
+   * Index 0 is the outcome `yesPrice` refers to; index 1 is its complement. The
+   * internal side names stay "yes"/"no" because they are structural — only the
+   * words shown to a trader change.
+   */
+  outcomeLabels?: [string, string];
   /** URL-safe identifier used for routing. */
   slug: string;
   /** The full question text, e.g. "Will the Fed cut rates in September?" */
@@ -82,6 +95,13 @@ export type MarketQuery = {
   minVolume?: number;
   /** Maximum markets to return. The catalogue is far larger than any page. */
   limit?: number;
+  /**
+   * How many matches to skip before the returned slice.
+   *
+   * Offset, not a cursor: the catalogue is held in memory and queried locally,
+   * so paging is an array slice. The upstream API's cursor never reaches here.
+   */
+  offset?: number;
 };
 
 /**
@@ -135,3 +155,7 @@ export class MarketDataError extends Error {
     this.name = "MarketDataError";
   }
 }
+
+/** The two side labels for a market, defaulting to Yes/No. */
+export const outcomeLabels = (market: Market): [string, string] =>
+  market.outcomeLabels ?? ["Yes", "No"];

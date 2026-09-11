@@ -20,15 +20,27 @@ type State = {
   sort: MarketSort;
 };
 
-/** Builds a browse URL, omitting defaults so the address bar stays clean. */
-function href({ search, category, sort }: State): string {
+/**
+ * Builds a browse URL, omitting defaults so the address bar stays clean.
+ *
+ * Exported because pagination has to preserve the current search, category and
+ * sort — a "next page" link that quietly dropped the active filter would be
+ * worse than no pagination.
+ */
+export function browseHref(
+  { search, category, sort }: State,
+  page = 1,
+): string {
   const params = new URLSearchParams();
   if (search) params.set("q", search);
   if (category) params.set("category", category);
   if (sort !== "active") params.set("sort", sort);
+  if (page > 1) params.set("page", String(page));
   const query = params.toString();
   return query ? `/?${query}` : "/";
 }
+
+const href = (state: State) => browseHref(state);
 
 const TAB =
   "-mb-px border-b-2 px-3 py-2 text-xs whitespace-nowrap transition-colors";

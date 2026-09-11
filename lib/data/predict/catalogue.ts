@@ -66,10 +66,22 @@ const slotFor = (network: PredictNetwork): Slot => {
   return created;
 };
 
-const isBinaryYesNo = (m: ApiMarket) =>
-  m.outcomes.length === 2 &&
-  m.outcomes.some((o) => o.name.toLowerCase() === "yes") &&
-  m.outcomes.some((o) => o.name.toLowerCase() === "no");
+/**
+ * Any two-outcome market, whatever its sides are called.
+ *
+ * This used to demand outcomes literally named "Yes" and "No", which silently
+ * dropped every Up/Down crypto market and the sports variants — on mainnet
+ * that is roughly a fifth of the top 100 by volume, including markets with
+ * five-figure daily turnover. The leverage maths only needs two complementary
+ * outcomes; it never cared what they were called.
+ */
+const isBinary = (m: ApiMarket) => m.outcomes.length === 2;
+
+/** Ordered by indexSet, so index 0 is always the outcome the book quotes. */
+function labelsOf(m: ApiMarket): [string, string] {
+  const sorted = [...m.outcomes].sort((a, b) => a.indexSet - b.indexSet);
+  return [sorted[0]?.name || "Yes", sorted[1]?.name || "No"];
+}
 
 /** Stable, unique, readable. The API's own categorySlug is shared by siblings. */
 function slugFor(m: ApiMarket): string {
@@ -105,11 +117,12 @@ function midFromBook(m: ApiMarket): number | null {
 }
 
 async function build(network: PredictNetwork): Promise<Catalogue> {
+  const startedAt = Date.now();
   const raw = await sweepMarkets(network, {
     sort: "VOLUME_TOTAL_DESC",
     maxPages: 6,
   });
-  const binary = raw.filter((m) => isBinaryYesNo(m) && m.tradingStatus === "OPEN");
+  const binary = raw.filter((m) => isBinary(m) && m.tradingStatus === "OPEN");
 
   // Resolve each distinct category once, not once per market — the NBA markets
   // alone share one category across dozens of rows.
@@ -158,6 +171,7 @@ async function build(network: PredictNetwork): Promise<Catalogue> {
         "Untagged",
       yesPrice,
       noPrice: 1 - yesPrice,
+      outcomeLabels: labelsOf(m),
       volume24h: m.stats?.volume24hUsd ?? 0,
       volumeTotal: m.stats?.volumeTotalUsd ?? 0,
       closesAt: cat?.endsAt ?? null,
@@ -168,6 +182,11 @@ async function build(network: PredictNetwork): Promise<Catalogue> {
     a === "Untagged" ? 1 : b === "Untagged" ? -1 : a.localeCompare(b),
   );
 
+  console.info(
+    `[catalogue] built ${network}: ${markets.length} markets, ` +
+      `${slugs.length} category lookups, ${Math.ceil(binary.length / 20)} chance batches, ` +
+      `${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
+  );
   return { markets, categories, builtAt: Date.now(), apiIdBySlug };
 }
 
@@ -178,6 +197,7 @@ export async function getCatalogue(
   const cache = slotFor(network);
 
   if (cache.value && Date.now() - cache.value.builtAt < TTL_MS) {
+    console.info(`[catalogue] cache HIT ${network}`);
     return cache.value;
   }
   if (cache.inflight) return cache.inflight;

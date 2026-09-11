@@ -11,10 +11,16 @@ import {
   MarketSearch,
   MarketToolbar,
 } from "@/components/market/market-toolbar";
-import { MarketGrid } from "@/components/market/market-grid";
+import { MarketFeed } from "@/components/market/market-feed";
 
-/** Deliberately short. A browse screen is a shortlist, not a catalogue. */
-const PAGE_SIZE = 6;
+/**
+ * One full grid: three across on desktop, four rows.
+ *
+ * Was 6, chosen when the catalogue was 76 fabricated markets. Against 600 live
+ * ones that showed 1% of the data with no way to reach the rest — the page
+ * literally read "6 of 600" and offered no next link.
+ */
+const PAGE_SIZE = 12;
 
 function first(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? "";
@@ -87,7 +93,6 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
 
       {page && page.markets.length > 0 && (
         <p className="mb-4 text-xs text-faint">
-          <span className="numeric">{page.markets.length}</span> of{" "}
           <span className="numeric">{page.totalMatching}</span>{" "}
           {search || category ? "matching markets" : "markets"}
         </p>
@@ -98,7 +103,18 @@ export default async function MarketsPage({ searchParams }: PageProps<"/">) {
       ) : !page || page.markets.length === 0 ? (
         <EmptyState search={search} />
       ) : (
-        <MarketGrid markets={page.markets} histories={histories} />
+        <MarketFeed
+          // Remounts on any query change, discarding everything appended under
+          // the previous filter.
+          key={`${search}|${category}|${sort}`}
+          initialMarkets={page.markets}
+          // A Map does not survive the server/client boundary; the feed rebuilds
+          // one on the other side.
+          initialHistories={Object.fromEntries(histories)}
+          total={page.totalMatching}
+          pageSize={PAGE_SIZE}
+          query={{ search, category, sort }}
+        />
       )}
     </main>
   );

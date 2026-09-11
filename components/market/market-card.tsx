@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { Market, PricePoint } from "@/lib/data/clients";
+import { outcomeLabels, type Market, type PricePoint } from "@/lib/data/clients";
 import { PriceChart } from "@/components/market/price-chart";
 import {
   formatCloseDate,
@@ -28,6 +28,8 @@ export function MarketCard({
   /** Supplied by the caller via the data seam — never generated in here. */
   history: PricePoint[];
 }) {
+  // "Up"/"Down" on a crypto window, "Yes"/"No" elsewhere — never assumed.
+  const labels = outcomeLabels(market);
 
   return (
     <div className="panel flex h-full flex-col gap-4 p-5">
@@ -61,8 +63,8 @@ export function MarketCard({
       )}
 
       <div className="flex flex-col gap-2">
-        <OutcomeRow label="Yes" price={market.yesPrice} side="long" />
-        <OutcomeRow label="No" price={market.noPrice} side="short" />
+        <OutcomeRow label={labels[0]} price={market.yesPrice} side="long" />
+        <OutcomeRow label={labels[1]} price={market.noPrice} side="short" />
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-hairline pt-3 text-xs text-faint">

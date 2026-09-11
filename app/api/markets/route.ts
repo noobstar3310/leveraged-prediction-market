@@ -39,6 +39,9 @@ export async function GET(request: Request) {
   const rawMin = Number(params.get("min"));
   const minVolume = Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 0;
 
+  const rawOffset = Number(params.get("offset"));
+  const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
+
   try {
     const client = await getMarketsClient();
     const page = await client.listMarkets({
@@ -47,8 +50,24 @@ export async function GET(request: Request) {
       sort,
       minVolume,
       limit,
+      offset,
     });
-    return NextResponse.json(page);
+
+    /*
+     * Sparklines ride along with the markets.
+     *
+     * The grid needs a series per card, and a client that fetched markets here
+     * and histories somewhere else would render a screenful of empty charts
+     * that fill in afterwards. One round trip keeps a card whole.
+     *
+     * A Map is not JSON, so it is serialised as a plain object keyed by
+     * market id.
+     */
+    const histories = await client.getHistories(page.markets);
+    return NextResponse.json({
+      ...page,
+      histories: Object.fromEntries(histories),
+    });
   } catch (error) {
     const message =
       error instanceof MarketDataError

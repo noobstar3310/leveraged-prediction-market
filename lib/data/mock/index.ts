@@ -53,6 +53,7 @@ export const mockMarketsClient: MarketsClient = {
     const needle = query.search?.trim().toLowerCase() ?? "";
     const minVolume = query.minVolume ?? 0;
     const limit = query.limit ?? DEFAULT_LIMIT;
+    const offset = Math.max(0, query.offset ?? 0);
 
     let matched = MOCK_MARKETS;
     if (needle) {
@@ -71,7 +72,7 @@ export const mockMarketsClient: MarketsClient = {
     const sorted = [...matched].sort(compare(query.sort, Date.now()));
 
     return {
-      markets: sorted.slice(0, limit),
+      markets: sorted.slice(offset, offset + limit),
       totalMatching: matched.length,
       catalogueSize: MOCK_MARKETS.length,
       categories: [...new Set(MOCK_MARKETS.map((m) => m.category))].sort(),

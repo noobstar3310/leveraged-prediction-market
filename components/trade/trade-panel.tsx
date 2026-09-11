@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { Check } from "lucide-react";
 
-import type { Market } from "@/lib/data/clients";
+import { outcomeLabels, type Market } from "@/lib/data/clients";
 import {
   MAX_LEVERAGE,
   MIN_LEVERAGE,
@@ -368,8 +368,8 @@ function SideToggle({
   market: Market;
 }) {
   const options: { value: Side; label: string; price: number }[] = [
-    { value: "yes", label: "Yes", price: market.yesPrice },
-    { value: "no", label: "No", price: market.noPrice },
+    { value: "yes", label: outcomeLabels(market)[0], price: market.yesPrice },
+    { value: "no", label: outcomeLabels(market)[1], price: market.noPrice },
   ];
 
   return (

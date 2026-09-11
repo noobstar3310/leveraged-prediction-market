@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getMarketsClient } from "@/lib/data";
+import { outcomeLabels } from "@/lib/data/clients";
 import { MarketTerminal } from "@/components/trade/market-terminal";
 import {
   formatCloseDate,
@@ -29,6 +30,7 @@ export default async function MarketDetailPage({
   if (!market) notFound();
 
   const candles = await client.getCandles(market);
+  const labels = outcomeLabels(market);
   const previous = candles[candles.length - 2]?.close ?? market.yesPrice;
   const change = market.yesPrice - previous;
 
@@ -53,14 +55,17 @@ export default async function MarketDetailPage({
         {/* Flat stats, no depth — this is data, and data never competes with
             controls for attention. */}
         <dl className="flex flex-wrap gap-x-8 gap-y-3">
-          <Stat label="Chance of yes" value={formatProbability(market.yesPrice)} />
+          <Stat
+            label={`Chance of ${labels[0].toLowerCase()}`}
+            value={formatProbability(market.yesPrice)}
+          />
           <Stat
             label="24h change"
             value={`${change >= 0 ? "▲ +" : "▼ −"}${Math.abs(change * 100).toFixed(2)} pts`}
             tone={change >= 0 ? "long" : "short"}
           />
           <Stat
-            label="Yes / No"
+            label={`${labels[0]} / ${labels[1]}`}
             value={`${formatPrice(market.yesPrice)} / ${formatPrice(market.noPrice)}`}
           />
           <Stat label="24h volume" value={formatUsdCompact(market.volume24h)} />

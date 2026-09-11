@@ -94,6 +94,7 @@ export function createPredictClient(network: PredictNetwork): MarketsClient {
     const needle = query.search?.trim().toLowerCase() ?? "";
     const minVolume = query.minVolume ?? 0;
     const limit = query.limit ?? DEFAULT_LIMIT;
+    const offset = Math.max(0, query.offset ?? 0);
 
     let matched = markets;
     if (needle) {
@@ -110,7 +111,7 @@ export function createPredictClient(network: PredictNetwork): MarketsClient {
     const sorted = [...matched].sort(compare(query.sort, Date.now()));
 
     return {
-      markets: sorted.slice(0, limit),
+      markets: sorted.slice(offset, offset + limit),
       totalMatching: matched.length,
       catalogueSize: markets.length,
       categories,
